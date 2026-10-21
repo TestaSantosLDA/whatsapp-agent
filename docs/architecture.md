@@ -17,19 +17,19 @@ A WhatsApp agent we can sell to many companies. Jular Madeiras is client #1. The
 
 ## Stack
 
-| Concern | Choice |
-| --- | --- |
-| Language | TypeScript, Node 22 |
-| Monorepo | pnpm workspaces |
-| API | Hono, Zod |
-| Database | Postgres (Supabase free tier in prod, Docker locally), Drizzle ORM |
-| Queue | In-process locally, Google Cloud Tasks in prod |
-| LLM | Claude API via `@anthropic-ai/sdk`; Claude Opus 5.5 default, model set per client |
-| Simulator and future dashboard | Angular |
-| Leads | `LeadSink` interface: mock (simulator panel), Google Sheets |
-| Email | `Mailer` interface: mock outbox, Resend |
-| Hosting | Google Cloud Run (free tier), one Docker image per app |
-| Tests | Vitest |
+| Concern                        | Choice                                                                            |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| Language                       | TypeScript, Node 24 LTS                                                           |
+| Monorepo                       | pnpm workspaces                                                                   |
+| API                            | Hono, Zod                                                                         |
+| Database                       | Postgres (Supabase free tier in prod, Docker locally), Drizzle ORM                |
+| Queue                          | In-process locally, Google Cloud Tasks in prod                                    |
+| LLM                            | Claude API via `@anthropic-ai/sdk`; Claude Opus 5.5 default, model set per client |
+| Simulator and future dashboard | Angular                                                                           |
+| Leads                          | `LeadSink` interface: mock (simulator panel), Google Sheets                       |
+| Email                          | `Mailer` interface: mock outbox, Resend                                           |
+| Hosting                        | Google Cloud Run (free tier), one Docker image per app                            |
+| Tests                          | Vitest                                                                            |
 
 Only the Claude API costs money. Everything else stays on free tiers at MVP volume.
 

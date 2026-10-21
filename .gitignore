@@ -6,3 +6,5 @@ dist/
 coverage/
 .angular/
 .DS_Store
+data/
+.claude/worktrees/

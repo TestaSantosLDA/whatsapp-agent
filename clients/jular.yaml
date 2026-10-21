@@ -1,0 +1,206 @@
+# Jular Madeiras: client config (WA-002).
+# Sources: loja.jular.pt and jular.pt, researched 2026-10-21.
+# Validated by clientConfigSchema in packages/shared/src/client-config.ts.
+
+id: jular
+name: Jular Madeiras
+timezone: Europe/Lisbon
+languages: [pt-PT, en]
+default_language: pt-PT
+
+brand_voice: >-
+  Simpático, especialista e conciso. Escreva em português europeu, tratando o
+  cliente por "você" (registo formal). A Jular tem mais de 50 anos de experiência
+  em madeira (fundada em 1973 por Júlia e Amaro Santos) e posiciona-se como
+  sustentável e inovadora.
+
+# Simulator for now; the real WhatsApp Cloud number comes later.
+channel:
+  type: simulator
+  phone_number_id: sim-jular
+  display_phone_number: '+351 219 484 000'
+
+catalogue:
+  type: shopify
+  store_url: https://loja.jular.pt
+
+business_lines:
+  - id: madeiras-revestimentos
+    name: Madeiras e Revestimentos
+    description: >-
+      Madeiras, pavimentos, decks, revestimentos, placas, portas e produtos de
+      manutenção. Venda pela loja online (loja.jular.pt) e nas lojas.
+  - id: engenharia-estruturas
+    name: Engenharia e Estruturas
+    description: >-
+      Estruturas em madeira lamelada colada (glulam), LVL-Kerto, CLT e vigas em I
+      (I-joist); pavilhões em Kerto com vãos até 40 m; coberturas. Venda
+      consultiva por projeto.
+  - id: casas-modulares
+    name: Casas Modulares (Treehouse)
+    description: >-
+      Casas pré-fabricadas em madeira Treehouse, em módulos de 22 m². A loja
+      online lista Treehouse Spot T1A (€54.413,97), SW T2A (€90.412,38) e
+      Douro T2 (€148.743,90), IVA incluído. Processo em 6 passos: 1) estudo de
+      viabilidade, 2) conceito/design, 3) projeto detalhado, 4) desenhos
+      técnicos, 5) construção em fábrica + trabalhos de fundação no terreno,
+      6) transporte, montagem e acabamentos. Centro de exposição em Azambuja.
+      TODO: o que está incluído no preço Treehouse (a confirmar com a Jular).
+
+# Hours: lists of "HH:MM-HH:MM" per weekday; a missing day means closed.
+branches:
+  - id: azambuja
+    name: Azambuja (Sede, Fábrica e Departamento Técnico; Centro de Exposição Treehouse)
+    region: Lisboa e Vale do Tejo / Ribatejo
+    address: Estrada Nacional 3, Km 5,9, Vila Nova da Rainha, 2050-522 Azambuja
+    phone: '+351 263 850 070'
+    mobile: '+351 919 999 960'
+    # TODO: branch email unknown.
+    hours:
+      mon: ['08:00-13:00', '14:00-18:00']
+      tue: ['08:00-13:00', '14:00-18:00']
+      wed: ['08:00-13:00', '14:00-18:00']
+      thu: ['08:00-13:00', '14:00-18:00']
+      fri: ['08:00-13:00', '14:00-18:00']
+      sat: ['10:00-13:00']
+    business_lines: [madeiras-revestimentos, engenharia-estruturas, casas-modulares]
+
+  - id: maia
+    name: Norte (Maia)
+    region: Norte
+    address: R. Albino José Domingues 297, 4470-034 Maia
+    phone: '+351 229 953 638'
+    mobile: '+351 919 550 654'
+    # TODO: branch email unknown.
+    hours:
+      mon: ['08:30-12:30', '14:00-18:30']
+      tue: ['08:30-12:30', '14:00-18:30']
+      wed: ['08:30-12:30', '14:00-18:30']
+      thu: ['08:30-12:30', '14:00-18:30']
+      fri: ['08:30-12:30', '14:00-18:30']
+      sat: ['10:00-13:00']
+    business_lines: [madeiras-revestimentos]
+
+  - id: camarate
+    name: Lisboa (Camarate) — loja e ponto de recolha da loja online
+    region: Lisboa
+    address: R. das Oliveiras 42, Quinta de Santa Rosa, 2680-458 Camarate
+    phone: '+351 219 484 000'
+    mobile: '+351 919 999 666'
+    email: lojaonline@jular.pt
+    hours:
+      mon: ['09:00-13:00', '14:00-18:00']
+      tue: ['09:00-13:00', '14:00-18:00']
+      wed: ['09:00-13:00', '14:00-18:00']
+      thu: ['09:00-13:00', '14:00-18:00']
+      fri: ['09:00-13:00', '14:00-18:00']
+      sat: ['10:00-13:00']
+    business_lines: [madeiras-revestimentos]
+    notes: Equipa comercial da loja online — +351 219 484 017.
+
+  - id: albufeira
+    name: Sul (Albufeira)
+    region: Algarve
+    address: Urbanização Serva Bloco 1-A, Vale de Paraíso, 8200-567 Albufeira
+    phone: '+351 289 588 538'
+    mobile: '+351 916 895 885'
+    # TODO: branch email unknown.
+    hours: # closed Saturday and Sunday
+      mon: ['09:00-13:00', '14:00-18:00']
+      tue: ['09:00-13:00', '14:00-18:00']
+      wed: ['09:00-13:00', '14:00-18:00']
+      thu: ['09:00-13:00', '14:00-18:00']
+      fri: ['09:00-13:00', '14:00-18:00']
+    business_lines: [madeiras-revestimentos]
+
+# TODO: lead recipients per branch (who receives each lead) still to come from Jular.
+routing:
+  default_branch: camarate
+  rules:
+    # Business line rules come first: projects always go to the technical HQ.
+    - business_line: casas-modulares
+      branch: azambuja
+    - business_line: engenharia-estruturas
+      branch: azambuja
+    # Region rules (districts / regions as customers name them).
+    - regions: [Norte, Porto, Braga, Viana do Castelo, Vila Real, Bragança, Aveiro, Viseu, Guarda]
+      branch: maia
+    - regions: [Algarve, Faro]
+      branch: albufeira
+    - regions: [Ribatejo, Santarém]
+      branch: azambuja
+
+lead:
+  request_types: [info, quote, sample, order]
+  required_fields: [name, location, request_type]
+  # TODO: confirm the response time with Jular.
+  response_time: um dia útil
+
+# No tools yet; agent tools arrive in M2. Planned: catalogue search, product
+# details, area-to-boxes calculator (WA-012), branch lookup, lead creation.
+tools: []
+
+model:
+  id: claude-opus-5-5
+  effort: medium
+
+# Markdown texts the agent may quote. Faithful to loja.jular.pt / jular.pt.
+policies:
+  pagamentos: |
+    Aceitamos os seguintes métodos de pagamento: **MB Way**, **Multibanco**, **Payshop** e **transferência bancária**.
+
+  cancelamento: |
+    Pode cancelar a sua encomenda nas **24 horas úteis** seguintes à sua realização.
+
+  confirmacao: |
+    Depois de fazer a encomenda, recebe um **email de confirmação** com o número da encomenda.
+
+  envio: |
+    - **Portugal Continental:** o custo de envio é apresentado no checkout e depende do peso, das dimensões e da morada de entrega.
+    - **Madeira, Açores e outros países:** o custo é orçamentado posteriormente pelo Departamento de Logística.
+    - Os prazos de entrega são **meramente indicativos** e não são garantidos.
+    - **Produtos especiais:** o custo e o prazo de transporte são orçamentados caso a caso, depois da encomenda. A encomenda só é processada depois de o cliente aceitar e pagar o orçamento de transporte.
+    - As encomendas não são divididas: se incluir um produto especial, toda a encomenda é tratada como especial.
+
+  descarga: |
+    - O transporte **não inclui a descarga**. O camião não tem grua nem plataforma; a descarga é feita pelo cliente.
+    - O local tem de ter acesso para camião e estacionamento sem bloquear o trânsito.
+    - Tem de estar alguém presente na entrega.
+    - Tentativas de entrega falhadas implicam custos adicionais.
+    - Pode alterar a data de entrega sem custos com **48 horas** de antecedência.
+    - O tempo de espera está limitado a **60 minutos**; depois disso, é cobrado **€50 por cada hora adicional**.
+
+  recolha: |
+    - Recolha **gratuita** na loja de **Camarate** (R. das Oliveiras 42, Quinta de Santa Rosa, 2680-458 Camarate).
+    - A encomenda fica normalmente pronta em **2 a 4 dias**.
+    - Horário de recolha: segunda a sexta, 9:00–13:00 e 14:00–18:00.
+    - Deve levantar a encomenda nos **15 dias úteis** seguintes ao email de "encomenda pronta"; caso contrário, poderá ser cobrada uma taxa de armazenamento.
+
+  danos: |
+    Verifique a mercadoria no momento da entrega ou da recolha. Se houver alguma anomalia, registe-a na guia de transporte e assine. Anomalias não registadas não são da responsabilidade da Jular.
+
+  precos: |
+    - Os preços online podem ser diferentes dos preços praticados nos showrooms.
+    - A loja online tem uma seleção de produtos, não a gama completa.
+    - Os preços incluem **IVA a 23%**. As páginas de produto mostram também o preço por m² + IVA.
+
+  desconto: |
+    Os subscritores da newsletter têm **5% de desconto na primeira compra**. Não válido em Casas Modulares.
+
+  produtos_fora_da_loja: |
+    Alguns produtos apresentados em jular.pt não estão na loja online. Para esses, visite um dos nossos showrooms ou contacte **lojaonline@jular.pt** / **+351 219 484 000**.
+
+  # TODO: returns window unknown; confirm with Jular and replace this text.
+  devolucoes: |
+    Para devoluções, consulte a política de reembolso em https://loja.jular.pt/policies/refund-policy ou contacte lojaonline@jular.pt / +351 219 484 000.
+
+  privacidade: |
+    Os seus dados são usados apenas para processar encomendas e para o acompanhamento pela equipa comercial. Nunca são vendidos nem partilhados. Política de privacidade: https://jular.pt/politica-de-privacidade
+
+  contactos: |
+    - Telefone geral: **+351 219 484 000**
+    - Loja online: **+351 219 484 017** · **lojaonline@jular.pt**
+    - Livro de Reclamações: https://www.livroreclamacoes.pt
+
+# TODO: m² per box per SKU from Jular (needed by WA-012). Keyed by SKU.
+product_data: {}

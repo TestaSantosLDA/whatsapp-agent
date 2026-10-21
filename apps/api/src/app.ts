@@ -1,0 +1,110 @@
+import { readFile } from 'node:fs/promises';
+import { basename, extname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Hono } from 'hono';
+import { logger } from 'hono/logger';
+import { EventBus } from './bus.js';
+import type { Channel } from './channels/channel.js';
+import { SimulatorChannel } from './channels/simulator.js';
+import { WhatsAppCloudChannel } from './channels/whatsapp-cloud.js';
+import type { ClientRegistry } from './clients/registry.js';
+import type { Db } from './db/index.js';
+import type { Env } from './env.js';
+import { EchoResponder } from './jobs/echo-responder.js';
+import {
+  onProcessConversationFailure,
+  PROCESS_CONVERSATION,
+  processConversation,
+  type ProcessConversationPayload,
+  type Responder,
+} from './jobs/process-conversation.js';
+import { InProcessQueue, type Queue } from './queue/queue.js';
+import { simulatorRoutes } from './routes/simulator.js';
+import { webhookRoutes } from './routes/webhook.js';
+import { MessageService } from './services/messages.js';
+
+export interface AppDeps {
+  env: Env;
+  db: Db;
+  clients: ClientRegistry;
+  /** Defaults to the echo responder until the Claude agent lands (WA-009). */
+  responder?: Responder;
+  queue?: Queue;
+  /** See processConversation. Tests set 0. */
+  debounceMs?: number;
+  logRequests?: boolean;
+}
+
+const publicDir = fileURLToPath(new URL('../public', import.meta.url));
+const contentTypes: Record<string, string> = {
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
+};
+
+/** Wires every part together. Tests build it with an in-memory database and drain the queue. */
+export function createApp(deps: AppDeps) {
+  const bus = new EventBus();
+  const channels = new Map<string, Channel>([
+    ['simulator', new SimulatorChannel(bus)],
+    ['whatsapp_cloud', new WhatsAppCloudChannel()],
+  ]);
+  const messages = new MessageService(deps.db, bus, channels);
+  const jobDeps = { db: deps.db, clients: deps.clients, messages };
+  const onFailure = onProcessConversationFailure(jobDeps);
+  const queue =
+    deps.queue ??
+    new InProcessQueue(async (job, error) => {
+      if (job.name === PROCESS_CONVERSATION)
+        await onFailure(job.payload as ProcessConversationPayload, error);
+      else console.error(`[queue] job ${job.name} failed`, error);
+    });
+  const responder = deps.responder ?? new EchoResponder(deps.env.PUBLIC_BASE_URL);
+  queue.register(
+    PROCESS_CONVERSATION,
+    processConversation({ ...jobDeps, responder, debounceMs: deps.debounceMs }),
+  );
+
+  const app = new Hono();
+  if (deps.logRequests) app.use('*', logger());
+
+  app.get('/health', (c) => c.json({ ok: true }));
+
+  app.get('/static/:file', async (c) => {
+    const file = basename(c.req.param('file'));
+    const type = contentTypes[extname(file)];
+    if (!type) return c.text('Not found', 404);
+    try {
+      const body = await readFile(join(publicDir, file));
+      return c.body(body, 200, { 'content-type': type, 'cache-control': 'public, max-age=3600' });
+    } catch {
+      return c.text('Not found', 404);
+    }
+  });
+
+  const webhook = webhookRoutes({ env: deps.env, clients: deps.clients, messages, queue });
+  app.route('/webhook', webhook);
+  app.route(
+    '/sim',
+    simulatorRoutes({
+      env: deps.env,
+      clients: deps.clients,
+      messages,
+      bus,
+      postWebhook: (body) =>
+        Promise.resolve(
+          webhook.request('/simulator', {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-simulator-secret': deps.env.SIMULATOR_WEBHOOK_SECRET,
+            },
+            body: JSON.stringify(body),
+          }),
+        ),
+    }),
+  );
+
+  return { app, queue, bus, messages };
+}

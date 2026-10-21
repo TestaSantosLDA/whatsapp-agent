@@ -1,13 +1,15 @@
 # WA-004: Channel interface and Meta-format webhook
 
-| Status | Milestone | Depends on | PR |
-| --- | --- | --- | --- |
-| todo | M1 | WA-002, WA-003 | |
+| Status    | Milestone | Depends on     | PR  |
+| --------- | --------- | -------------- | --- |
+| in review | M1        | WA-002, WA-003 |     |
 
 ## Why
+
 The agent must not care whether a message came from the simulator or real WhatsApp. If both speak Meta's format, going live is a config change.
 
 ## Scope
+
 - `Channel` interface in `apps/api`:
   - `parseInbound(payload) → InboundMessage[]` (text, interactive replies, images; ignore status callbacks for now)
   - `send(clientId, to, OutboundMessage)` for text, image with caption, reply buttons (max 3), list messages, and links
@@ -20,9 +22,11 @@ The agent must not care whether a message came from the simulator or real WhatsA
 - `GET /webhook/whatsapp` verification handshake (needed later by Meta, cheap to add now).
 
 ## Acceptance criteria
+
 - [ ] Unit tests with recorded Meta payload fixtures (text, button reply, image).
 - [ ] Duplicate deliveries of the same message id produce one stored message and one job.
 - [ ] Webhook answers in under 200 ms locally regardless of agent work.
 
 ## Out of scope
+
 The real WhatsApp send implementation (WA-030).

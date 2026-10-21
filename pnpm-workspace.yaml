@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: true
+  lmdb: false
+  msgpackr-extract: false
+minimumReleaseAgeExclude:
+  - '@electric-sql/pglite@0.5.11'

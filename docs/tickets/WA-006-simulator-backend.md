@@ -1,13 +1,15 @@
 # WA-006: Simulator channel backend
 
-| Status | Milestone | Depends on | PR |
-| --- | --- | --- | --- |
-| todo | M1 | WA-004, WA-005 | |
+| Status    | Milestone | Depends on     | PR  |
+| --------- | --------- | -------------- | --- |
+| in review | M1        | WA-004, WA-005 |     |
 
 ## Why
+
 We want to build and demo without a Meta account, while exercising the same code path the real channel will use.
 
 ## Scope
+
 - `SimulatorChannel` implementing `Channel`.
 - Simulator API used by the Angular app:
   - `GET /sim/clients`: clients available to demo
@@ -18,6 +20,7 @@ We want to build and demo without a Meta account, while exercising the same code
 - Simulator protected by a simple access code so a public demo URL is not open to everyone.
 
 ## Acceptance criteria
+
 - [ ] With an echo handler, a message sent to `/sim/jular/messages` comes back over SSE within 1 second.
 - [ ] The stored inbound payload is byte-compatible with the Meta fixtures from WA-004.
 - [ ] Several simulated customers (phone numbers) can chat at the same time without mixing messages.
