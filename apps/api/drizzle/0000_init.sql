@@ -88,7 +88,7 @@ CREATE TABLE "products" (
 	"url" text NOT NULL,
 	"image_url" text,
 	"extra" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"search_vector" "tsvector" GENERATED ALWAYS AS (setweight(to_tsvector('portuguese', coalesce("products"."title", '') || ' ' || coalesce("products"."variant_title", '')), 'A') || setweight(to_tsvector('portuguese', coalesce("products"."product_type", '') || ' ' || coalesce("products"."vendor", '')), 'B') || setweight(to_tsvector('portuguese', coalesce("products"."description", '')), 'C')) STORED,
+	"search_vector" "tsvector" GENERATED ALWAYS AS (setweight(to_tsvector('portuguese', coalesce("products"."title", '') || ' ' || coalesce("products"."variant_title", '')), 'A') || setweight(to_tsvector('portuguese', coalesce("products"."product_type", '') || ' ' || coalesce("products"."vendor", '')), 'B') || setweight(to_tsvector('portuguese', coalesce("products"."description", '')), 'C') || setweight(to_tsvector('simple', coalesce("products"."sku", '') || ' ' || coalesce("products"."vendor", '') || ' ' || coalesce("products"."title", '')), 'A')) STORED,
 	"synced_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

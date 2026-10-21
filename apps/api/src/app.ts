@@ -67,7 +67,11 @@ export function createApp(deps: AppDeps) {
   );
 
   const app = new Hono();
-  if (deps.logRequests) app.use('*', logger());
+  if (deps.logRequests)
+    app.use(
+      '*',
+      logger((line) => console.log(redactQuery(line))),
+    );
 
   app.get('/health', (c) => c.json({ ok: true }));
 
@@ -107,4 +111,9 @@ export function createApp(deps: AppDeps) {
   );
 
   return { app, queue, bus, messages };
+}
+
+/** The simulator stream carries the access code and the customer phone in its query string. */
+export function redactQuery(line: string): string {
+  return line.replace(/([?&](?:code|phone)=)[^&\s]*/g, '$1***');
 }

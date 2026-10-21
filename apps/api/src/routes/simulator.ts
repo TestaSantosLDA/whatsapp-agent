@@ -56,6 +56,11 @@ export function simulatorRoutes(deps: {
   });
 
   const simClients = () => deps.clients.all().filter((cl) => cl.channel.type === 'simulator');
+  /** Only simulator clients: the simulator must never reach real WhatsApp customers. */
+  const simClient = (id: string) => {
+    const client = deps.clients.get(id);
+    return client?.channel.type === 'simulator' ? client : undefined;
+  };
 
   app.get('/clients', (c) =>
     c.json(
@@ -69,9 +74,8 @@ export function simulatorRoutes(deps: {
   );
 
   app.post('/:clientId/messages', async (c) => {
-    const client = deps.clients.get(c.req.param('clientId'));
-    if (!client || client.channel.type !== 'simulator')
-      return c.json({ error: 'unknown client' }, 404);
+    const client = simClient(c.req.param('clientId'));
+    if (!client) return c.json({ error: 'unknown client' }, 404);
     const parsed = sendBodySchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: z.prettifyError(parsed.error) }, 400);
 
@@ -82,9 +86,10 @@ export function simulatorRoutes(deps: {
   });
 
   app.get('/:clientId/stream', (c) => {
-    const client = deps.clients.get(c.req.param('clientId'));
+    const client = simClient(c.req.param('clientId'));
+    if (!client) return c.json({ error: 'unknown client' }, 404);
     const phone = phoneSchema.safeParse(c.req.query('phone'));
-    if (!client || !phone.success) return c.json({ error: 'unknown client or bad phone' }, 400);
+    if (!phone.success) return c.json({ error: 'bad phone' }, 400);
 
     return streamSSE(c, async (stream) => {
       const queue: SimEvent[] = [];
@@ -128,9 +133,10 @@ export function simulatorRoutes(deps: {
   });
 
   app.post('/:clientId/reset', async (c) => {
-    const client = deps.clients.get(c.req.param('clientId'));
+    const client = simClient(c.req.param('clientId'));
+    if (!client) return c.json({ error: 'unknown client' }, 404);
     const phone = phoneSchema.safeParse(c.req.query('phone'));
-    if (!client || !phone.success) return c.json({ error: 'unknown client or bad phone' }, 400);
+    if (!phone.success) return c.json({ error: 'bad phone' }, 400);
     await deps.messages.closeConversation(client.id, phone.data);
     deps.bus.publish(EventBus.key(client.id, phone.data), {
       type: 'history',

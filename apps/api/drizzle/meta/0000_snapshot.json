@@ -1,5 +1,5 @@
 {
-  "id": "3b8f839e-e212-44d2-8c88-7f305432eab7",
+  "id": "ab6fa3ea-ab6b-4664-b1fd-dcbf8d60ed69",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -708,7 +708,7 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "setweight(to_tsvector('portuguese', coalesce(\"products\".\"title\", '') || ' ' || coalesce(\"products\".\"variant_title\", '')), 'A') || setweight(to_tsvector('portuguese', coalesce(\"products\".\"product_type\", '') || ' ' || coalesce(\"products\".\"vendor\", '')), 'B') || setweight(to_tsvector('portuguese', coalesce(\"products\".\"description\", '')), 'C')",
+            "as": "setweight(to_tsvector('portuguese', coalesce(\"products\".\"title\", '') || ' ' || coalesce(\"products\".\"variant_title\", '')), 'A') || setweight(to_tsvector('portuguese', coalesce(\"products\".\"product_type\", '') || ' ' || coalesce(\"products\".\"vendor\", '')), 'B') || setweight(to_tsvector('portuguese', coalesce(\"products\".\"description\", '')), 'C') || setweight(to_tsvector('simple', coalesce(\"products\".\"sku\", '') || ' ' || coalesce(\"products\".\"vendor\", '') || ' ' || coalesce(\"products\".\"title\", '')), 'A')",
             "type": "stored"
           }
         },

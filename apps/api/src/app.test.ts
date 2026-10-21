@@ -1,9 +1,10 @@
 import type { SimEvent } from '@wa/shared';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
-import { messages } from './db/schema.js';
+import { redactQuery } from './app.js';
+import { conversations, messages, products } from './db/schema.js';
 import type { Responder } from './jobs/process-conversation.js';
-import { fixture, postSimWebhook, testApp } from './test/helpers.js';
+import { fixture, postSimWebhook, testApp, testClient } from './test/helpers.js';
 
 type TestApp = Awaited<ReturnType<typeof testApp>>;
 let current: TestApp | undefined;
@@ -145,7 +146,6 @@ describe('conversation turns', () => {
     const { app, queue, db } = await setup();
     await postSimWebhook(app, fixture('text'));
     await queue.drain();
-    const { conversations } = await import('./db/schema.js');
     await db.update(conversations).set({ status: 'human' });
     await postSimWebhook(app, fixture('button-reply'));
     await queue.drain();
@@ -165,9 +165,40 @@ describe('conversation turns', () => {
     await queue.drain();
     const [out] = await db.select().from(messages).where(eq(messages.direction, 'outbound'));
     expect(out?.text).toMatch(/problema técnico/);
-    const { conversations } = await import('./db/schema.js');
     const [conv] = await db.select().from(conversations);
     expect(conv?.status).toBe('human');
+  }, 15_000);
+
+  it('answers again when sending the reply fails once', async () => {
+    const { app, queue, db, messages: service } = await setup();
+    const send = service.send.bind(service);
+    let calls = 0;
+    service.send = async (...args) => {
+      if (calls++ === 0) throw new Error('channel down');
+      return send(...args);
+    };
+    await postSimWebhook(app, fixture('text'));
+    await queue.drain();
+    const outbound = await db.select().from(messages).where(eq(messages.direction, 'outbound'));
+    expect(outbound).toHaveLength(1);
+    const [inbound] = await db.select().from(messages).where(eq(messages.direction, 'inbound'));
+    expect(inbound?.processedAt).not.toBeNull();
+  }, 15_000);
+
+  it('apologises and hands over when sending keeps failing', async () => {
+    const { app, queue, db, messages: service } = await setup();
+    const send = service.send.bind(service);
+    service.send = async (client, conversationId, to, payload) => {
+      if (payload.type !== 'text' || !payload.text.includes('problema técnico'))
+        throw new Error('channel down');
+      return send(client, conversationId, to, payload);
+    };
+    await postSimWebhook(app, fixture('text'));
+    await queue.drain();
+    const [conv] = await db.select().from(conversations);
+    expect(conv?.status).toBe('human');
+    const outbound = await db.select().from(messages).where(eq(messages.direction, 'outbound'));
+    expect(outbound.map((m) => m.text)).toEqual([expect.stringMatching(/problema técnico/)]);
   }, 15_000);
 });
 
@@ -272,6 +303,36 @@ describe('simulator API', () => {
     expect((await app.request('/sim/clients?code=demo-1234')).status).toBe(200);
   });
 
+  it('never exposes a real WhatsApp client', async () => {
+    const real = testClient({
+      id: 'real',
+      channel: {
+        type: 'whatsapp_cloud',
+        phone_number_id: 'real-phone-id',
+        display_phone_number: '+351 220 000 000',
+        waba_id: 'waba',
+        access_token_env: 'REAL_TOKEN',
+      },
+    });
+    const { app } = await setup({ clients: [testClient(), real] });
+    expect((await app.request('/sim/real/stream?phone=351912345678')).status).toBe(404);
+    expect(
+      (await app.request('/sim/real/reset?phone=351912345678', { method: 'POST' })).status,
+    ).toBe(404);
+    const res = await app.request('/sim/real/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ phone: '351912345678', name: 'X', text: 'olá' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('keeps the access code and phone out of request logs', () => {
+    expect(redactQuery('<-- GET /sim/acme/stream?phone=351911111111&code=demo-1234')).toBe(
+      '<-- GET /sim/acme/stream?phone=***&code=***',
+    );
+  });
+
   it('serves the demo image and nothing outside the public folder', async () => {
     const { app } = await setup();
     const res = await app.request('/static/demo-product.svg');
@@ -299,5 +360,29 @@ describe('echo responder', () => {
           m.type,
       ),
     ).toEqual(['button', 'list', 'image']);
+  });
+});
+
+describe('product search vector', () => {
+  it('matches SKUs and brand names without Portuguese stemming', async () => {
+    const { db } = await setup();
+    await db.insert(products).values({
+      clientId: 'acme',
+      productId: 'p1',
+      variantId: 'v1',
+      sku: 'DCK-IPE-21',
+      title: 'Deck de Ipê',
+      vendor: 'Woodlam',
+      price: '42.50',
+      available: true,
+      url: 'https://example.test/deck',
+    });
+    const match = (query: string) =>
+      db
+        .select({ id: products.id })
+        .from(products)
+        .where(sql`${products.searchVector} @@ plainto_tsquery('simple', ${query})`);
+    expect(await match('DCK-IPE-21')).toHaveLength(1);
+    expect(await match('woodlam')).toHaveLength(1);
   });
 });

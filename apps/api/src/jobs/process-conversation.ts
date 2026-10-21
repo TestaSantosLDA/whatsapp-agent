@@ -101,6 +101,12 @@ export function processConversation(deps: {
         ? []
         : await deps.responder.respond({ client, conversation, contact, newMessages: pending });
 
+    for (const reply of replies) {
+      await deps.messages.send(client, conversation.id, contact.waId, reply);
+    }
+
+    // Only now are the messages answered. If a send fails, the retry answers them again (a
+    // partial failure can repeat a reply), and after the last retry the failure handler hands over.
     await deps.db
       .update(messages)
       .set({ processedAt: new Date() })
@@ -110,10 +116,6 @@ export function processConversation(deps: {
           pending.map((m) => m.id),
         ),
       );
-
-    for (const reply of replies) {
-      await deps.messages.send(client, conversation.id, contact.waId, reply);
-    }
   };
 }
 
