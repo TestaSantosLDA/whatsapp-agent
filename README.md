@@ -32,3 +32,9 @@ No database setup is needed: without `DATABASE_URL` the API uses an embedded Pos
 - `packages/shared`: Zod schemas and types shared by both (WhatsApp payloads, client config, simulator events).
 - `clients/*.yaml`: one config file per client.
 - `docs/`: architecture and tickets.
+
+## Automatic PR review
+
+When a Claude Code session (CLI, desktop or the Claude app) opens a pull request, with the GitHub MCP tool or `gh pr create`, a PostToolUse hook ([.claude/hooks/pr-created.sh](.claude/hooks/pr-created.sh), registered in [.claude/settings.json](.claude/settings.json)) asks the session to start a fresh background reviewer. The reviewer follows the [`pr-review` skill](.claude/skills/pr-review/SKILL.md): it checks the PR against its ticket and the architecture doc, runs the checks, and posts inline comments plus a summary (Must fix / Recommended). It uses the session's own Claude subscription, no API key and no GitHub Action, and it only comments: it never approves, merges or pushes.
+
+Limit: only PRs opened from Claude Code sessions are reviewed; PRs opened by hand on GitHub are not. See [WA-021](docs/tickets/WA-021-automatic-pr-review.md).
