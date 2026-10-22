@@ -15,6 +15,8 @@ const envSchema = z.object({
   QUEUE: z.enum(['inprocess']).default('inprocess'),
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  /** Empty = the echo test bot answers instead of Claude. */
+  ANTHROPIC_API_KEY: z.string().optional(),
   /** Public base URL of this API, used for links to its own static files. */
   PUBLIC_BASE_URL: z.string().default('http://localhost:3000'),
 });

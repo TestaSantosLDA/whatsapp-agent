@@ -138,6 +138,8 @@ lead:
 
 # No tools yet; agent tools arrive in M2. Planned: catalogue search, product
 # details, area-to-boxes calculator (WA-012), branch lookup, lead creation.
+privacy_policy_url: https://jular.pt/politica-de-privacidade
+
 tools: []
 
 model:

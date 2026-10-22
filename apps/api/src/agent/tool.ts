@@ -15,6 +15,8 @@ export interface ToolContext {
    * after the agent's text reply for this turn, in the order they were queued.
    */
   outbox: OutboundMessage[];
+  /** Tap-to-answer options for the agent's text reply, set by offer_choices. */
+  choices?: { options: string[]; listButton?: string };
 }
 
 /**

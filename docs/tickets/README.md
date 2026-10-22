@@ -48,14 +48,14 @@ One markdown file per ticket. A ticket is written and agreed before it is implem
 
 ### M2: Agent and catalogue (demo answers product questions)
 
-| Ticket                                             | Title                              | Depends on     | Status |
-| -------------------------------------------------- | ---------------------------------- | -------------- | ------ |
-| [WA-008](WA-008-shopify-catalogue-sync.md)         | Shopify catalogue sync             | WA-003         | todo   |
-| [WA-009](WA-009-agent-loop.md)                     | Agent loop with Claude             | WA-005, WA-002 | todo   |
-| [WA-010](WA-010-product-tools.md)                  | Product search and details tools   | WA-008, WA-009 | todo   |
-| [WA-011](WA-011-knowledge-languages-guardrails.md) | Policies, languages and guardrails | WA-009         | todo   |
-| [WA-012](WA-012-quantity-calculator.md)            | Quantity and price calculator      | WA-010         | todo   |
-| [WA-013](WA-013-checkout-links.md)                 | Checkout links                     | WA-010         | todo   |
+| Ticket                                             | Title                              | Depends on     | Status    |
+| -------------------------------------------------- | ---------------------------------- | -------------- | --------- |
+| [WA-008](WA-008-shopify-catalogue-sync.md)         | Shopify catalogue sync             | WA-003         | todo      |
+| [WA-009](WA-009-agent-loop.md)                     | Agent loop with Claude             | WA-005, WA-002 | in review |
+| [WA-010](WA-010-product-tools.md)                  | Product search and details tools   | WA-008, WA-009 | todo      |
+| [WA-011](WA-011-knowledge-languages-guardrails.md) | Policies, languages and guardrails | WA-009         | in review |
+| [WA-012](WA-012-quantity-calculator.md)            | Quantity and price calculator      | WA-010         | todo      |
+| [WA-013](WA-013-checkout-links.md)                 | Checkout links                     | WA-010         | todo      |
 
 ### M3: Business outputs (demo produces leads)
 

@@ -72,8 +72,13 @@ export const clientConfigSchema = z.object({
   }),
   tools: z.array(z.string()).default([]),
   model: z
-    .object({ id: z.string().default('claude-opus-5-5'), effort: z.string().default('medium') })
+    .object({
+      id: z.string().default('claude-opus-5-5'),
+      effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium'),
+    })
     .prefault({}),
+  /** Linked in the first reply to a new contact. */
+  privacy_policy_url: z.url().optional(),
   policies: z.record(z.string(), z.string()).default({}),
   product_data: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
 });
