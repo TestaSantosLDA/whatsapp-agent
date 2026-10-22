@@ -7,6 +7,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { BackofficeStore } from './core/backoffice.store';
 import { ChatStore } from './core/chat.store';
 import { CUSTOM_PERSONA_ID, isValidPhone, PERSONAS } from './core/personas';
 
@@ -83,6 +84,9 @@ import { CUSTOM_PERSONA_ID, isValidPhone, PERSONAS } from './core/personas';
           (click)="togglePanel.emit()"
         >
           Back-office
+          @if (backoffice.leads().length) {
+            <span class="panel-toggle__count">{{ backoffice.leads().length }}</span>
+          }
         </button>
       </div>
     </div>
@@ -90,6 +94,7 @@ import { CUSTOM_PERSONA_ID, isValidPhone, PERSONAS } from './core/personas';
 })
 export class TopBar {
   protected readonly store = inject(ChatStore);
+  protected readonly backoffice = inject(BackofficeStore);
   protected readonly personas = PERSONAS;
   protected readonly customId = CUSTOM_PERSONA_ID;
   readonly togglePanel = output<void>();

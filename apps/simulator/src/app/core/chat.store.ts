@@ -56,6 +56,8 @@ export class ChatStore {
   readonly connection = signal<Connection>('idle');
   readonly conversationStatus = signal<string | null>(null);
   readonly sending = signal(false);
+  /** Bumped whenever the chat starts over (client or persona switch, reset), so the back-office panel can follow. */
+  readonly session = signal(0);
 
   readonly client = computed(() => this.clients().find((c) => c.id === this.clientId()) ?? null);
 
@@ -126,6 +128,7 @@ export class ChatStore {
       this.fail(e);
       if (this.phase() !== 'ready') return;
     }
+    this.session.update((n) => n + 1);
     this.connect();
   }
 
@@ -213,6 +216,7 @@ export class ChatStore {
   private reconnect(): void {
     this.disconnect();
     this.clearChat();
+    this.session.update((n) => n + 1);
     this.connect();
   }
 

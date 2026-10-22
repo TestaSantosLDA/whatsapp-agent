@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { SimEvent } from '@wa/shared';
+import type { BackofficeEvent, SimEvent } from '@wa/shared';
 import { App } from './app';
 import { EVENT_SOURCE_FACTORY, EventSourceLike } from './core/chat.store';
 
@@ -13,7 +13,7 @@ class FakeEventSource implements EventSourceLike {
   close() {
     this.closed = true;
   }
-  emit(ev: SimEvent) {
+  emit(ev: SimEvent | BackofficeEvent) {
     this.onmessage?.(new MessageEvent('message', { data: JSON.stringify(ev) }));
   }
 }
@@ -69,10 +69,82 @@ describe('App (simulator page)', () => {
 
   it('connects to the stream for the first client and the default persona', async () => {
     const { el } = await boot();
-    expect(sources.length).toBe(1);
-    expect(sources[0].url).toBe('/sim/jular/stream?phone=351912345678');
+    expect(sources.map((s) => s.url)).toEqual([
+      '/sim/jular/stream?phone=351912345678',
+      '/sim/jular/backoffice?phone=351912345678',
+    ]);
     expect(el.querySelector('.chat-head__name')?.textContent).toContain('Jular Madeiras');
     expect(el.querySelector('.panel__title')?.textContent).toContain('Back-office');
+  });
+
+  it('shows pushed leads and emails in the back-office panel, trace behind a toggle', async () => {
+    const { fixture, el } = await boot();
+    const bo = sources.find((s) => s.url.includes('/backoffice'))!;
+    bo.emit({
+      type: 'snapshot',
+      conversationStatus: 'human',
+      leads: [],
+      emails: [],
+      turns: [
+        {
+          id: 't1',
+          createdAt: '2026-10-22T10:00:00Z',
+          model: 'claude-test',
+          inputTokens: 1200,
+          outputTokens: 80,
+          cacheReadTokens: 1000,
+          costUsd: 0.0012,
+          latencyMs: 900,
+          error: null,
+          toolCalls: [{ name: 'search_products', input: { query: 'deck' }, ok: true, ms: 12 }],
+        },
+      ],
+    });
+    bo.emit({
+      type: 'lead',
+      lead: {
+        id: 'l1',
+        createdAt: '2026-10-22T10:00:01Z',
+        type: 'quote',
+        branchId: 'porto',
+        branchName: 'Porto',
+        status: 'new',
+        fields: { name: 'Ana Costa', area: '40 m2' },
+      },
+    });
+    bo.emit({
+      type: 'email',
+      email: {
+        id: 'e1',
+        createdAt: '2026-10-22T10:00:02Z',
+        kind: 'lead',
+        to: ['porto@jular.test'],
+        subject: 'Novo pedido de orçamento',
+        body: 'A Ana quer 40 m2 de deck.',
+        sentAt: null,
+        error: null,
+      },
+    });
+    await fixture.whenStable();
+
+    expect(el.querySelector('.badge')?.textContent).toContain('Humano');
+    expect(el.querySelector('.bo__bot-btn')?.textContent).toContain('Devolver ao bot');
+    const card = el.querySelector('.lead')!;
+    expect(card.textContent).toContain('Pedido de orçamento');
+    expect(card.textContent).toContain('Porto');
+    expect(card.textContent).toContain('40 m2');
+
+    expect(el.querySelector('.mail__text')).toBeNull();
+    (el.querySelector('.mail__row') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(el.querySelector('.mail__text')?.textContent).toContain('40 m2 de deck');
+
+    expect(el.querySelector('.turn')).toBeNull();
+    const toggle = el.querySelector('.bo__switch input') as HTMLInputElement;
+    toggle.click();
+    await fixture.whenStable();
+    expect(el.querySelector('.turn')?.textContent).toContain('search_products');
+    expect(localStorage.getItem('wa-sim.showTrace')).toBe('1');
   });
 
   it('renders streamed messages, typing and a tappable button reply', async () => {
