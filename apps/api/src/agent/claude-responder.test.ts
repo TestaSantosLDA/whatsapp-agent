@@ -5,8 +5,11 @@ import { z } from 'zod';
 import { agentRuns, conversations, leads, messages } from '../db/schema.js';
 import type { Responder } from '../jobs/process-conversation.js';
 import { testApp, testClient } from '../test/helpers.js';
+import type { ClientConfig } from '@wa/shared';
+import { seedCatalogue, shopClient, V } from '../test/catalogue.js';
 import { ClaudeResponder } from './claude-responder.js';
-import { defineTool, ToolError } from './tool.js';
+import { agentTools } from './registry.js';
+import { defineTool, ToolError, type AgentTool } from './tool.js';
 
 type Script = (body: Record<string, unknown>) => Record<string, unknown>;
 
@@ -73,15 +76,21 @@ afterEach(async () => {
   current = undefined;
 });
 
-async function setup(script: Script[], opts: { tools?: string[] } = {}) {
+async function setup(
+  script: Script[],
+  opts: { tools?: string[]; client?: ClientConfig; registry?: AgentTool[] } = {},
+) {
   const claude = fakeClaude(script);
   // The responder needs the app's database, so the app gets a stand-in that calls it later.
   const lazy: Responder = { respond: (input) => responder.respond(input) };
-  current = await testApp({ clients: [testClient({ tools: opts.tools ?? [] })], responder: lazy });
+  current = await testApp({
+    clients: [opts.client ?? testClient({ tools: opts.tools ?? [] })],
+    responder: lazy,
+  });
   const responder = new ClaudeResponder({
     db: current.db,
     anthropic: claude.anthropic,
-    tools: [flaky],
+    tools: opts.registry ?? [flaky],
     now: () => new Date('2026-10-19T10:30:00Z'), // a Monday, when the test branch is open,
   });
   const send = async (text: string) => {
@@ -203,6 +212,29 @@ describe('ClaudeResponder', () => {
     const runs = await t.db.select().from(agentRuns);
     expect(runs[0]?.error).toMatch(/refusal/);
   }, 15_000);
+});
+
+describe('ClaudeResponder with the product tools', () => {
+  it('searches the synced catalogue and sends product cards after the reply', async () => {
+    const client = shopClient({ tools: agentTools.map((t) => t.name) });
+    const t = await setup(
+      [
+        callTool('search_products', { query: 'pavimento', use: 'casa de banho' }),
+        (body) => {
+          const result = JSON.stringify((body.messages as unknown[]).at(-1));
+          expect(result).toContain(V.vinyl);
+          return callTool('show_products', { variant_ids: [V.vinyl] })(body);
+        },
+        say('Para casa de banho recomendo este vinílico SPC, resistente à água.'),
+      ],
+      { client, registry: agentTools },
+    );
+    await seedCatalogue(t.db, client);
+    await t.send('Preciso de pavimento para uma casa de banho');
+    const out = await t.outbound();
+    expect(out.map((m) => m.type)).toEqual(['text', 'image']);
+    expect(out[0]?.text).toMatch(/vinílico/);
+  });
 });
 
 describe.skipIf(!process.env.ANTHROPIC_API_KEY)('ClaudeResponder live smoke test', () => {

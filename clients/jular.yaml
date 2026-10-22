@@ -140,11 +140,15 @@ lead:
   # TODO: confirm the response time with Jular.
   response_time: um dia útil
 
-# No tools yet; agent tools arrive in M2. Planned: catalogue search, product
-# details, area-to-boxes calculator (WA-012), branch lookup, lead creation.
 privacy_policy_url: https://jular.pt/politica-de-privacidade
 
-tools: []
+# Agent tools (apps/api/src/agent/registry.ts). offer_choices and request_human are always on.
+tools:
+  - search_products
+  - get_product
+  - show_products
+  - calculate_quantity
+  - create_checkout_link
 
 model:
   id: claude-opus-5-5
