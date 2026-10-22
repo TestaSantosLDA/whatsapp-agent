@@ -1,8 +1,8 @@
 # WA-021: Automatic PR review from Claude Code
 
-| Status | Milestone | Depends on | PR |
-| --- | --- | --- | --- |
-| in review | Tooling | | |
+| Status    | Milestone | Depends on | PR  |
+| --------- | --------- | ---------- | --- |
+| in review | Tooling   |            |     |
 
 ## Why
 
