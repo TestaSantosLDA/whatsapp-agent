@@ -381,6 +381,15 @@ describe('pnpm eval', () => {
     expect(t.fake.requests).toHaveLength(0);
   });
 
+  it('refuses a model without a price unless --allow-unknown-cost is passed', async () => {
+    const t = cliDeps();
+    const args = ['--client', 'jular', '--model', 'claude-unknown-9', '--yes'];
+    expect(await main(args, t.deps)).toBe(1);
+    expect(t.err.join('\n')).toMatch(/--allow-unknown-cost/);
+    expect(t.built()).toBe(0);
+    expect(t.fake.requests).toHaveLength(0);
+  });
+
   it('needs --yes or an interactive "y" before spending money', async () => {
     const noTerminal = cliDeps();
     expect(await main(['--client', 'jular'], noTerminal.deps)).toBe(1);

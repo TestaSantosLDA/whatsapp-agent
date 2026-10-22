@@ -9,6 +9,8 @@ pnpm eval --client jular --case faq-pickup-en,handoff-ask-person-pt --yes
 pnpm eval:compare evals/reports/jular-claude-opus-5-5-….json evals/reports/jular-claude-haiku-5-5-….json
 ```
 
+A model or grader id without a price in `apps/api/src/agent/pricing.ts` is refused, because the cost could not be shown; pass `--allow-unknown-cost` to run it anyway.
+
 Options: `--model` (default: the client's configured model), `--case id[,id]` (repeatable), `--concurrency 4`, `--grader claude-opus-5-5` (default) or `--no-grader`, `--live-catalogue`, `--yes`.
 
 Needs `ANTHROPIC_API_KEY` (environment or the repo-root `.env`); without it the command prints the estimate and exits. **Every run costs real API money**: the estimate is printed first and the run starts only with `--yes` or a typed `y`. Tests never call the API.

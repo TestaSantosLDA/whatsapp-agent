@@ -176,17 +176,18 @@ gcloud tasks queues create "$QUEUE" --location="$REGION" \
 
 ### 9. Workload Identity Federation (GitHub → Google, no JSON key)
 
-Only workflow runs on `main` of this repository can act as `wa-deploy`.
+Only workflow runs on `main` of this repository can act as `wa-deploy`. The trust is pinned to the repository's numeric id, which never changes, as well as its name: if the repository were renamed or deleted, someone recreating the name could not use it.
 
 ```sh
+GITHUB_REPO_ID=$(gh api "repos/$GITHUB_REPO" --jq .id)
 gcloud iam workload-identity-pools create github --location=global --display-name="GitHub Actions"
 gcloud iam workload-identity-pools providers create-oidc whatsapp-agent \
   --location=global --workload-identity-pool=github --display-name="whatsapp-agent" \
   --issuer-uri=https://token.actions.githubusercontent.com \
-  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
-  --attribute-condition="assertion.repository == '$GITHUB_REPO' && assertion.ref == 'refs/heads/main'"
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_id=assertion.repository_id,attribute.ref=assertion.ref" \
+  --attribute-condition="assertion.repository_id == '$GITHUB_REPO_ID' && assertion.repository == '$GITHUB_REPO' && assertion.ref == 'refs/heads/main'"
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/$GITHUB_REPO"
+  --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository_id/$GITHUB_REPO_ID"
 ```
 
 ### 10. Spending limit on the Claude API key

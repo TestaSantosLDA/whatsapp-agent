@@ -19,6 +19,11 @@ export interface CloudTasksOptions {
   /** OAuth access token for the Cloud Tasks API. Defaults to the metadata server (Cloud Run). */
   getAccessToken?: () => Promise<string>;
   now?: () => number;
+  /**
+   * Waits between createTask attempts. The customer's message is already stored when enqueue
+   * runs, and Meta's redelivery is dropped as a duplicate, so a lost task means no reply at all.
+   */
+  retryDelaysMs?: number[];
 }
 
 /** Outcome of one delivery: `retry` makes the route answer 500 so Cloud Tasks tries again. */
@@ -58,7 +63,7 @@ export class CloudTasksQueue implements Queue {
   async enqueue<T>(job: Job<T>): Promise<void> {
     if (!this.handlers.has(job.name))
       throw new Error(`No handler registered for job "${job.name}"`);
-    const created = this.createTask(job);
+    const created = this.createTaskWithRetries(job);
     this.pending.add(created);
     try {
       await created;
@@ -90,6 +95,20 @@ export class CloudTasksQueue implements Queue {
         console.error('[queue] failure handler threw', e),
       );
       return 'done';
+    }
+  }
+
+  private async createTaskWithRetries(job: Job): Promise<void> {
+    const delays = this.opts.retryDelaysMs ?? [500, 2000];
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.createTask(job);
+      } catch (error) {
+        const delay = delays[attempt];
+        if (delay === undefined) throw error;
+        console.warn(`[queue] createTask attempt ${attempt + 1} failed, retrying`, error);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
   }
 

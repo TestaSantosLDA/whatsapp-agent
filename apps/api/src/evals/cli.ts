@@ -51,7 +51,7 @@ export async function confirmRun(opts: {
 }
 
 const usage =
-  'Usage: pnpm eval --client <id> [--model <id>] [--case <id>[,<id>]] [--yes] [--concurrency 4] [--grader <model> | --no-grader] [--live-catalogue]';
+  'Usage: pnpm eval --client <id> [--model <id>] [--case <id>[,<id>]] [--yes] [--concurrency 4] [--grader <model> | --no-grader] [--live-catalogue] [--allow-unknown-cost]';
 
 /** Returns the process exit code. */
 export async function main(argv: string[], deps: CliDeps): Promise<number> {
@@ -68,6 +68,7 @@ export async function main(argv: string[], deps: CliDeps): Promise<number> {
         grader: { type: 'string' },
         'no-grader': { type: 'boolean', default: false },
         'live-catalogue': { type: 'boolean', default: false },
+        'allow-unknown-cost': { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
       },
       allowPositionals: false,
@@ -121,6 +122,13 @@ export async function main(argv: string[], deps: CliDeps): Promise<number> {
       `Estimated cost: ${formatUsd(estimate.totalUsd)} (agent ${formatUsd(estimate.agentUsd)}, grader ${formatUsd(estimate.graderUsd)}). A rough upper estimate; billing is the source of truth.`,
     ].join('\n'),
   );
+
+  if (estimate.totalUsd === undefined && !args['allow-unknown-cost']) {
+    deps.err(
+      'No price in pricing.ts for the model or the grader, so the cost cannot be shown. Check the model id, add its price, or pass --allow-unknown-cost.',
+    );
+    return 1;
+  }
 
   const apiKey = deps.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

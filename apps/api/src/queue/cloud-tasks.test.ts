@@ -23,6 +23,7 @@ function makeQueue(overrides: Partial<ConstructorParameters<typeof CloudTasksQue
     delayMs: 1500,
     getAccessToken: async () => 'token-abc',
     now: () => NOW,
+    retryDelaysMs: [0, 0],
     ...overrides,
   });
 }
@@ -58,12 +59,28 @@ describe('CloudTasksQueue.enqueue', () => {
     });
   });
 
-  it('throws when the API refuses the task, and refuses unknown jobs', async () => {
-    const queue = makeQueue({ fetch: fakeFetch(429).fn });
+  it('retries createTask, so a passing API error does not lose the reply', async () => {
+    const ok = fakeFetch(200);
+    let calls = 0;
+    const flaky = (async (url: string | URL | Request, init?: RequestInit) =>
+      ++calls === 1
+        ? new Response('unavailable', { status: 503 })
+        : ok.fn(url, init)) as typeof fetch;
+    const queue = makeQueue({ fetch: flaky });
+    queue.register('work', async () => {});
+    await queue.enqueue({ name: 'work', key: 'a', payload: {} });
+    expect(calls).toBe(2);
+    expect(ok.calls).toHaveLength(1);
+  });
+
+  it('throws when the API keeps refusing the task, and refuses unknown jobs', async () => {
+    const refused = fakeFetch(429);
+    const queue = makeQueue({ fetch: refused.fn });
     queue.register('work', async () => {});
     await expect(queue.enqueue({ name: 'work', key: 'a', payload: {} })).rejects.toThrow(
       /429 quota exceeded/,
     );
+    expect(refused.calls).toHaveLength(3);
     await expect(queue.enqueue({ name: 'nope', key: 'a', payload: {} })).rejects.toThrow(
       /No handler/,
     );
