@@ -156,9 +156,10 @@ lead:
   # Order drafts for delivery go to the online store team.
   order_branch: camarate
 
-# TODO: a sender on a domain verified in Resend (e.g. assistente@jular.pt).
+# Demo: Resend's test sender, which only delivers to the Resend account's own address (use it
+# with MAIL_REDIRECT_TO). TODO: a sender on a domain verified in Resend (e.g. assistente@jular.pt).
 mail:
-  from: Assistente WhatsApp Jular <noreply@example.invalid>
+  from: Assistente WhatsApp Jular <onboarding@resend.dev>
 
 # Situations, beyond the built-in ones, in which the agent hands over to a colleague.
 # TODO: confirm the thresholds with Jular.
@@ -286,7 +287,5 @@ skills:
         ask: Licensing status (not started, project in progress, licence approved, not sure).
       - id: budget
         ask: Budget range.
-      - id: timeline
-        ask: When they would like the house ready.
       - id: showroom_visit
         ask: Whether they want to visit the Azambuja showroom, and a preferred day.

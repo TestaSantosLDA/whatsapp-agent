@@ -63,7 +63,7 @@ export function buildSystemPrompt(client: ClientConfig): string {
         '',
         skill.instructions.trim(),
         '',
-        `Lead: call save_lead with request_type "${skill.lead_type}"${skill.business_line ? ` and business_line "${skill.business_line}"` : ''}, putting these answers in its \`details\` under the ids below. Ask them one or two at a time, never as a form; skip what the customer already said.`,
+        `Lead: call save_lead with request_type "${skill.lead_type}"${skill.business_line ? ` and business_line "${skill.business_line}"` : ''}, putting these answers in its \`details\` under the ids below (location, timeline and the other core fields go in their own parameters). Ask them one or two at a time, never as a form; skip what the customer already said.`,
         fields,
       ].join('\n');
     })

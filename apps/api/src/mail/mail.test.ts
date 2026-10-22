@@ -6,7 +6,7 @@ import { BackgroundTasks } from '../services/background.js';
 import { BackofficeService } from '../services/backoffice.js';
 import { testDb } from '../test/catalogue.js';
 import { testClient } from '../test/helpers.js';
-import { OutboxMailer, ResendMailer } from './mailer.js';
+import { OutboxMailer, RedirectMailer, ResendMailer } from './mailer.js';
 import { handoffEmail, leadEmail, orderDraftEmail, type EmailContext } from './templates.js';
 
 const client = testClient();
@@ -63,6 +63,20 @@ describe('email templates', () => {
     });
     expect(draft.kind).toBe('order_draft');
     expect(draft.text).toMatch(/Viga GL24h: 890,00\s€ x 2 = 1780,00\s€/);
+  });
+});
+
+describe('RedirectMailer (MAIL_REDIRECT_TO)', () => {
+  it('sends to the demo address and keeps the intended recipients in the subject', async () => {
+    const t = await setup();
+    const mailer = new RedirectMailer(new OutboxMailer({ db: t.db, backoffice: t.backoffice }), [
+      'demo@example.invalid',
+    ]);
+    await mailer.send(email);
+    const [row] = await t.db.select().from(outbox);
+    expect(row?.to).toEqual(['demo@example.invalid']);
+    expect(row?.subject).toBe(`[demo → lisboa@example.invalid] ${email.subject}`);
+    await t.handle.close();
   });
 });
 

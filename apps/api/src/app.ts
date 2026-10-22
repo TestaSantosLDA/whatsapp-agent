@@ -148,6 +148,11 @@ function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Respond
     tools: agentTools,
     backoffice,
     leads: new LeadSinks({ db: deps.db, backoffice, sinks }),
-    mailer: mailerFromEnv({ db: deps.db, backoffice, resendApiKey: deps.env.RESEND_API_KEY }),
+    mailer: mailerFromEnv({
+      db: deps.db,
+      backoffice,
+      resendApiKey: deps.env.RESEND_API_KEY,
+      redirectTo: deps.env.MAIL_REDIRECT_TO,
+    }),
   });
 }

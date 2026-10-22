@@ -167,13 +167,40 @@ export class ResendMailer extends OutboxMailer {
   }
 }
 
+/**
+ * Demo mode: sends every email to `to` instead of the configured team, keeping the intended
+ * recipients in the subject, so a demo can show real emails before the client's are known.
+ */
+export class RedirectMailer implements Mailer {
+  constructor(
+    private readonly inner: Mailer,
+    private readonly to: string[],
+  ) {}
+
+  send(email: Email): Promise<void> {
+    const intended = email.to.length ? email.to.join(', ') : 'sem destinatários';
+    return this.inner.send({
+      ...email,
+      to: this.to,
+      subject: `[demo → ${intended}] ${email.subject}`,
+    });
+  }
+
+  flush(): Promise<void> {
+    return this.inner.flush();
+  }
+}
+
 /** Resend when RESEND_API_KEY is set, else the outbox only (demo mode). */
 export function mailerFromEnv(deps: {
   db: Db;
   backoffice?: BackofficeService;
   resendApiKey?: string;
+  /** MAIL_REDIRECT_TO: every email goes to these addresses instead. */
+  redirectTo?: string[];
 }): Mailer {
-  return deps.resendApiKey
+  const mailer = deps.resendApiKey
     ? new ResendMailer({ db: deps.db, backoffice: deps.backoffice, apiKey: deps.resendApiKey })
     : new OutboxMailer({ db: deps.db, backoffice: deps.backoffice });
+  return deps.redirectTo?.length ? new RedirectMailer(mailer, deps.redirectTo) : mailer;
 }

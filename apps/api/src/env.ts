@@ -23,6 +23,17 @@ const envSchema = z.object({
   JOBS_SECRET: z.string().min(16).optional(),
   /** Empty = emails stop at the outbox table and the back-office panel (demo mode). */
   RESEND_API_KEY: z.string().optional(),
+  /** Comma-separated addresses that receive every email instead of the client's team (demos). */
+  MAIL_REDIRECT_TO: z
+    .string()
+    .optional()
+    .transform((v) =>
+      v
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.email()).optional()),
   /** Google service account key file contents (JSON), for the Google Sheets lead sink. */
   GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
 });
