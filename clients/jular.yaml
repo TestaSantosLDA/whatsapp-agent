@@ -20,9 +20,13 @@ channel:
   phone_number_id: sim-jular
   display_phone_number: '+351 219 484 000'
 
+# Synced hourly from the public products.json (WA-008). Products tagged "Transporte Especial"
+# in Shopify never get a checkout link (WA-013).
 catalogue:
   type: shopify
   store_url: https://loja.jular.pt
+  # Optional: added to checkout links as ?ref=... for attribution, if Jular wants it.
+  # checkout_ref: whatsapp-agent
 
 business_lines:
   - id: madeiras-revestimentos
@@ -204,5 +208,8 @@ policies:
     - Loja online: **+351 219 484 017** · **lojaonline@jular.pt**
     - Livro de Reclamações: https://www.livroreclamacoes.pt
 
-# TODO: m² per box per SKU from Jular (needed by WA-012). Keyed by SKU.
+# Extra product data merged into the synced catalogue (WA-008), keyed by Shopify product
+# handle, SKU or variant id (the most specific key wins per field). `special_transport: true`
+# marks a product as special transport when it is not tagged so in Shopify.
+# TODO: m² per box per SKU from Jular (needed by WA-012).
 product_data: {}

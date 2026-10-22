@@ -22,6 +22,7 @@ import {
   type Responder,
 } from './jobs/process-conversation.js';
 import { InProcessQueue, type Queue } from './queue/queue.js';
+import { jobsRoutes } from './routes/jobs.js';
 import { simulatorRoutes } from './routes/simulator.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { MessageService } from './services/messages.js';
@@ -89,6 +90,8 @@ export function createApp(deps: AppDeps) {
       return c.text('Not found', 404);
     }
   });
+
+  app.route('/jobs', jobsRoutes({ env: deps.env, db: deps.db, clients: deps.clients }));
 
   const webhook = webhookRoutes({ env: deps.env, clients: deps.clients, messages, queue });
   app.route('/webhook', webhook);

@@ -19,6 +19,8 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   /** Public base URL of this API, used for links to its own static files. */
   PUBLIC_BASE_URL: z.string().default('http://localhost:3000'),
+  /** Shared secret schedulers send as `x-jobs-secret` to /jobs/*. Empty = jobs routes disabled. */
+  JOBS_SECRET: z.string().min(16).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
