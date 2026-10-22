@@ -60,6 +60,8 @@ branches:
     phone: '+351 263 850 070'
     mobile: '+351 919 999 960'
     # TODO: branch email unknown.
+    # TODO: real lead recipients from Jular; placeholder until then.
+    lead_emails: [azambuja@example.invalid]
     hours:
       mon: ['08:00-13:00', '14:00-18:00']
       tue: ['08:00-13:00', '14:00-18:00']
@@ -76,6 +78,8 @@ branches:
     phone: '+351 229 953 638'
     mobile: '+351 919 550 654'
     # TODO: branch email unknown.
+    # TODO: real lead recipients from Jular; placeholder until then.
+    lead_emails: [maia@example.invalid]
     hours:
       mon: ['08:30-12:30', '14:00-18:30']
       tue: ['08:30-12:30', '14:00-18:30']
@@ -92,6 +96,8 @@ branches:
     phone: '+351 219 484 000'
     mobile: '+351 919 999 666'
     email: lojaonline@jular.pt
+    # TODO: confirm with Jular who receives leads (lojaonline@jular.pt?); placeholder until then.
+    lead_emails: [camarate@example.invalid]
     hours:
       mon: ['09:00-13:00', '14:00-18:00']
       tue: ['09:00-13:00', '14:00-18:00']
@@ -109,6 +115,8 @@ branches:
     phone: '+351 289 588 538'
     mobile: '+351 916 895 885'
     # TODO: branch email unknown.
+    # TODO: real lead recipients from Jular; placeholder until then.
+    lead_emails: [albufeira@example.invalid]
     hours: # closed Saturday and Sunday
       mon: ['09:00-13:00', '14:00-18:00']
       tue: ['09:00-13:00', '14:00-18:00']
@@ -117,7 +125,7 @@ branches:
       fri: ['09:00-13:00', '14:00-18:00']
     business_lines: [madeiras-revestimentos]
 
-# TODO: lead recipients per branch (who receives each lead) still to come from Jular.
+# Leads, handoffs and order drafts are emailed to the routed branch's lead_emails.
 routing:
   default_branch: camarate
   rules:
@@ -139,16 +147,37 @@ lead:
   required_fields: [name, location, request_type]
   # TODO: confirm the response time with Jular.
   response_time: um dia útil
+  # The database is always written. Add `sheets` and the block below once Jular shares a sheet
+  # with the service account in GOOGLE_SERVICE_ACCOUNT_JSON.
+  sinks: [db]
+  # sheets:
+  #   spreadsheet_id: <id from the sheet URL>
+  #   sheet_name: Leads
+  # Order drafts for delivery go to the online store team.
+  order_branch: camarate
+
+# TODO: a sender on a domain verified in Resend (e.g. assistente@jular.pt).
+mail:
+  from: Assistente WhatsApp Jular <noreply@example.invalid>
+
+# Situations, beyond the built-in ones, in which the agent hands over to a colleague.
+# TODO: confirm the thresholds with Jular.
+handoff:
+  triggers:
+    - O cliente pede uma visita técnica, uma medição em obra ou uma reunião.
+    - Obras de pavimento ou deck acima de 300 m², para a equipa preparar uma proposta.
 
 privacy_policy_url: https://jular.pt/politica-de-privacidade
 
-# Agent tools (apps/api/src/agent/registry.ts). offer_choices and request_human are always on.
+# Agent tools (apps/api/src/agent/registry.ts). offer_choices and handoff_to_human are always on.
 tools:
   - search_products
   - get_product
   - show_products
   - calculate_quantity
   - create_checkout_link
+  - save_lead
+  - send_order_draft
 
 model:
   id: claude-opus-5-5
@@ -217,3 +246,47 @@ policies:
 # marks a product as special transport when it is not tagged so in Shopify.
 # TODO: m² per box per SKU from Jular (needed by WA-012).
 product_data: {}
+
+# Playbooks added to the agent's prompt (WA-017).
+skills:
+  - id: treehouse
+    name: Treehouse modular houses (pre-sales)
+    business_line: casas-modulares
+    when: >-
+      The customer asks about a modular, prefabricated or wooden house, Treehouse, a
+      T1/T2 house, a tourism unit, a studio or a home office built by Jular.
+    instructions: |
+      Treehouse leads are high-value (about €54k to €150k+), so a fast, warm and well-qualified first answer matters more than anywhere else.
+
+      What you know (from loja.jular.pt; quote it, do not add to it):
+      - Models listed online, VAT included: *Treehouse Spot T1A* €54.413,97 · *Treehouse SW T2A* €90.412,38 · *Treehouse Douro T2* €148.743,90. If search_products returns a Treehouse product, prefer its price and link.
+      - Built from 22 m² wooden modules, made in Jular's factory in Azambuja.
+      - Process in 6 steps: 1) feasibility study, 2) concept and design, 3) detailed project, 4) technical drawings, 5) factory construction while the foundations are done on site, 6) transport, assembly and finishes.
+      - Showroom (Centro de Exposição Treehouse) in Azambuja, at the HQ; see its opening hours above.
+      - The 5% newsletter discount does not apply to modular houses.
+
+      Not known yet: what each price includes (foundations, transport, assembly, licensing, finishes, kitchen, bathroom), lead times, financing. When asked, say clearly that it is to be confirmed with the Treehouse team; never guess.
+
+      How to run the conversation:
+      1. Answer the question first (for "quanto custa uma casa T2?", give the T2 models and prices above, and say that what is included is confirmed by the team).
+      2. Then qualify, one or two questions at a time: what the house is for, whether they already have land and where, the licensing status, budget range and timeline.
+      3. Offer a visit to the Azambuja showroom (ask for a preferred day; there is no calendar booking yet, the team confirms).
+      4. Before saving, summarise what you understood and ask the customer to confirm. Then call save_lead and say the Treehouse team in Azambuja will contact them within the response time.
+    lead_type: quote
+    lead_fields:
+      - id: use
+        ask: What the house is for (home, holiday or tourism rental, office or studio).
+        required: true
+      - id: model_interest
+        ask: Which model or typology interests them (T1, T2, Spot, SW, Douro, not sure).
+      - id: land
+        ask: Whether they already own land, and where it is (municipality).
+        required: true
+      - id: licensing
+        ask: Licensing status (not started, project in progress, licence approved, not sure).
+      - id: budget
+        ask: Budget range.
+      - id: timeline
+        ask: When they would like the house ready.
+      - id: showroom_visit
+        ask: Whether they want to visit the Azambuja showroom, and a preferred day.

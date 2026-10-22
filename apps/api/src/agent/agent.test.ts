@@ -3,8 +3,9 @@ import { loadClients } from '../clients/registry.js';
 import type { MessageRow } from '../services/messages.js';
 import { splitText, toOutbound } from './format.js';
 import { toClaudeMessages } from './history.js';
-import { isOpen, localTime } from './hours.js';
+import { isOpen, localTime, nextOpening } from './hours.js';
 import { detectLanguage } from './language.js';
+import { testClient } from '../test/helpers.js';
 import { buildSystemPrompt } from './prompt.js';
 
 describe('opening hours', () => {
@@ -25,6 +26,45 @@ describe('opening hours', () => {
     expect(open('2026-12-07T18:00:00Z')).toBe(false);
     expect(open('2026-12-08T10:00:00Z')).toBe(false); // Tuesday
     expect(open('2026-12-12T10:30:00Z')).toBe(true); // Saturday
+  });
+});
+
+describe('next opening', () => {
+  const branch = {
+    hours: {
+      mon: ['09:00-13:00', '14:00-18:00'],
+      tue: ['09:00-13:00', '14:00-18:00'],
+      wed: ['09:00-13:00', '14:00-18:00'],
+      fri: ['09:00-13:00', '14:00-18:00'],
+      sat: ['10:00-13:00'],
+    },
+  };
+  const next = (iso: string) => nextOpening(branch, new Date(iso), 'Europe/Lisbon');
+
+  it('is the next morning after closing time', () => {
+    // Tuesday 22:00 in Lisbon (summer time) → Wednesday 09:00.
+    expect(next('2026-10-20T21:00:00Z')).toEqual({
+      at: new Date('2026-10-21T08:00:00Z'),
+      weekday: 'wed',
+      time: '09:00',
+      inDays: 1,
+    });
+  });
+
+  it('is after lunch the same day, and nothing while open', () => {
+    expect(next('2026-10-20T12:30:00Z')).toMatchObject({ time: '14:00', inDays: 0 });
+    expect(next('2026-10-20T09:00:00Z')).toBeUndefined();
+  });
+
+  it('skips closed days and handles the change to winter time', () => {
+    // Wednesday evening → Friday (Thursday is closed).
+    expect(next('2026-10-21T18:30:00Z')).toMatchObject({ weekday: 'fri', inDays: 2 });
+    // Saturday 22:00 → Monday 09:00, after clocks go back on Sunday 25 October.
+    expect(next('2026-10-24T21:00:00Z')).toMatchObject({
+      at: new Date('2026-10-26T09:00:00Z'),
+      weekday: 'mon',
+    });
+    expect(nextOpening({ hours: {} }, new Date(), 'Europe/Lisbon')).toBeUndefined();
   });
 });
 
@@ -131,5 +171,24 @@ describe('system prompt', () => {
     expect(prompt).toContain('Mon 08:00-13:00, 14:00-18:00');
     expect(prompt).toContain('Customers in Algarve, Faro → albufeira');
     expect(prompt).toContain('MB Way');
+  });
+
+  it('adds the Treehouse playbook with its prices and lead fields', () => {
+    const jular = loadClients(new URL('../../../../clients', import.meta.url).pathname).get(
+      'jular',
+    )!;
+    const prompt = buildSystemPrompt(jular);
+    expect(prompt).toContain('# Skills');
+    expect(prompt).toContain('Treehouse SW T2A* €90.412,38');
+    expect(prompt).toContain('to be confirmed with the Treehouse team');
+    expect(prompt).toContain('request_type "quote" and business_line "casas-modulares"');
+    expect(prompt).toContain('- land (required):');
+    // The playbook's business line routes to the modular-house branch.
+    const rule = jular.routing.rules.find((r) => r.business_line === 'casas-modulares');
+    expect(rule?.branch).toBe('azambuja');
+  });
+
+  it('has no skills section when the client has none', () => {
+    expect(buildSystemPrompt(testClient())).not.toContain('# Skills');
   });
 });

@@ -13,6 +13,17 @@ export class UnauthorizedError extends Error {
   }
 }
 
+/** Any other non-2xx answer. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 const CODE_KEY = 'wa-sim.accessCode';
 
 export function storageGet(key: string): string | null {
@@ -63,8 +74,25 @@ export class ApiService {
     );
   }
 
+  /** Hands the conversation back to the bot after a person took over (WA-016). */
+  async returnToBot(clientId: string, phone: string): Promise<void> {
+    await this.request<unknown>(
+      'POST',
+      `/sim/${encodeURIComponent(clientId)}/conversation/bot?phone=${encodeURIComponent(phone)}`,
+    );
+  }
+
   streamUrl(clientId: string, phone: string): string {
-    let url = `/sim/${encodeURIComponent(clientId)}/stream?phone=${encodeURIComponent(phone)}`;
+    return this.sseUrl(clientId, 'stream', phone);
+  }
+
+  backofficeUrl(clientId: string, phone: string): string {
+    return this.sseUrl(clientId, 'backoffice', phone);
+  }
+
+  /** EventSource cannot send headers, so the access code goes in the query string. */
+  private sseUrl(clientId: string, path: string, phone: string): string {
+    let url = `/sim/${encodeURIComponent(clientId)}/${path}?phone=${encodeURIComponent(phone)}`;
     const code = this.accessCode();
     if (code) url += `&code=${encodeURIComponent(code)}`;
     return url;
@@ -83,7 +111,7 @@ export class ApiService {
     if (res.status === 401) throw new UnauthorizedError();
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      throw new Error(`${method} ${path} failed: ${res.status} ${detail}`.trim());
+      throw new ApiError(`${method} ${path} failed: ${res.status} ${detail}`.trim(), res.status);
     }
     if (res.status === 204) return undefined as T;
     const text = await res.text();

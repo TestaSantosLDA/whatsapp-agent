@@ -150,6 +150,8 @@ export const leads = pgTable('leads', {
 export const outbox = pgTable('outbox', {
   id: id(),
   clientId: clientId(),
+  /** The conversation the email is about, when there is one (shown in the back-office panel). */
+  conversationId: uuid('conversation_id').references(() => conversations.id),
   kind: text('kind').notNull(),
   to: text('to').array().notNull(),
   subject: text('subject').notNull(),

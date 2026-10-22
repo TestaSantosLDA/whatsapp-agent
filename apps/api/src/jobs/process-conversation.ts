@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import type { OutboundMessage } from '../channels/channel.js';
 import type { ClientRegistry } from '../clients/registry.js';
 import type { Db } from '../db/index.js';
+import type { BackofficeService } from '../services/backoffice.js';
 import { contacts, conversations, messages } from '../db/schema.js';
 import type {
   ContactRow,
@@ -124,6 +125,7 @@ export function onProcessConversationFailure(deps: {
   db: Db;
   clients: ClientRegistry;
   messages: MessageService;
+  backoffice?: BackofficeService;
 }) {
   return async (
     { clientId, conversationId }: ProcessConversationPayload,
@@ -146,6 +148,7 @@ export function onProcessConversationFailure(deps: {
       .update(conversations)
       .set({ status: 'human' })
       .where(eq(conversations.id, conversationId));
+    deps.backoffice?.publishStatus(clientId, row.contact.waId, 'human');
     const english = row.contact.language === 'en';
     await deps.messages.send(client, conversationId, row.contact.waId, {
       type: 'text',

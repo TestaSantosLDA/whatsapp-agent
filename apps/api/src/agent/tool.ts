@@ -2,6 +2,9 @@ import type { ClientConfig } from '@wa/shared';
 import type { z } from 'zod';
 import type { OutboundMessage } from '../channels/channel.js';
 import type { Db } from '../db/index.js';
+import type { LeadSinks } from '../leads/sink.js';
+import type { Mailer } from '../mail/mailer.js';
+import type { BackofficeService } from '../services/backoffice.js';
 import type { ContactRow, ConversationRow } from '../services/messages.js';
 
 /** What a tool sees while it runs: the turn it belongs to, and a place to queue rich messages. */
@@ -15,6 +18,14 @@ export interface ToolContext {
    * after the agent's text reply for this turn, in the order they were queued.
    */
   outbox: OutboundMessage[];
+  /** Publishes leads, emails and status changes to the back-office panel. */
+  backoffice?: BackofficeService;
+  /** Where save_lead, send_order_draft and handoff_to_human store leads. Default: db only. */
+  leads?: LeadSinks;
+  /** Emails to the branch. Default: outbox only (demo mode). */
+  mailer?: Mailer;
+  /** The turn's time, for opening hours. Default: the real clock. */
+  now?: Date;
   /** Tap-to-answer options for the agent's text reply, set by offer_choices. */
   choices?: { options: string[]; listButton?: string };
 }

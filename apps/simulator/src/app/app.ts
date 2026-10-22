@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { AccessGate } from './access-gate';
+import { BackofficePanel } from './backoffice/backoffice-panel';
 import { ChatPhone } from './chat/chat-phone';
 import { ChatStore } from './core/chat.store';
 import { TopBar } from './top-bar';
 
 @Component({
   selector: 'app-root',
-  imports: [AccessGate, ChatPhone, TopBar],
+  imports: [AccessGate, BackofficePanel, ChatPhone, TopBar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @switch (store.phase()) {
@@ -34,13 +35,7 @@ import { TopBar } from './top-bar';
             <app-chat-phone />
           </main>
           <aside class="layout__panel panel" aria-labelledby="panel-title">
-            <h2 id="panel-title" class="panel__title">Back-office</h2>
-            <p class="panel__text">Leads, emails and handoffs appear here (WA-018)</p>
-            @if (store.conversationStatus(); as s) {
-              <p class="panel__meta">
-                Conversation status: <strong>{{ s }}</strong>
-              </p>
-            }
+            <app-backoffice-panel />
           </aside>
         </div>
       }

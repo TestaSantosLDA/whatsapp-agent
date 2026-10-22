@@ -52,6 +52,28 @@ export function buildSystemPrompt(client: ClientConfig): string {
     .map((l) => `- **${l.name}** (id: ${l.id}): ${l.description}`)
     .join('\n');
 
+  const skills = client.skills
+    .map((skill) => {
+      const fields = skill.lead_fields
+        .map((f) => `- ${f.id}${f.required ? ' (required)' : ''}: ${f.ask}`)
+        .join('\n');
+      return [
+        `## ${skill.name} (id: ${skill.id})`,
+        `Use when: ${skill.when.trim()}`,
+        '',
+        skill.instructions.trim(),
+        '',
+        `Lead: call save_lead with request_type "${skill.lead_type}"${skill.business_line ? ` and business_line "${skill.business_line}"` : ''}, putting these answers in its \`details\` under the ids below. Ask them one or two at a time, never as a form; skip what the customer already said.`,
+        fields,
+      ].join('\n');
+    })
+    .join('\n\n');
+
+  const handoffTriggers = client.handoff.triggers.map((t) => `\n- ${t}`).join('');
+  const requiredFields = client.lead.required_fields.length
+    ? client.lead.required_fields.join(', ')
+    : 'nothing beyond a summary';
+
   const policies = Object.entries(client.policies)
     .map(([key, text]) => `### ${key}\n${text.trim()}`)
     .join('\n\n');
@@ -81,11 +103,21 @@ ${client.brand_voice.trim()}
 - Do not invent contacts, hours, addresses or people's names.
 
 # Handoff to a person
-Call request_human, and tell the customer a colleague will reply, when:
+Call handoff_to_human when:
 - the customer asks for a person, a call or a colleague ("falar com uma pessoa", "talk to a human", "ligar"),
 - they complain, are upset, or the question needs a decision you cannot make (custom prices, damaged goods, invoices, existing orders),
-- you could not help after two attempts.
-Use the routing rules to say which branch will follow up.
+- you misunderstood them twice, or could not help after two attempts.${handoffTriggers}
+Then tell the customer a colleague will reply here, and when, using the tool's tell_customer (it knows the branch's opening hours). Do not invent a time.
+
+# Leads and quote requests
+For quotes, information or samples a colleague must follow up (professionals, projects, large areas, products not sold online), call save_lead.
+- Required before saving: ${requiredFields}. The phone is already known; the WhatsApp profile name counts as the name unless the customer gives another.
+- Ask only for what is still missing, one or two questions at a time, never a list of questions.
+- Before saving, repeat the key details in one short message and ask the customer to confirm.
+- After saving, say who will contact them and within what time, exactly as the tool returns it.
+
+# Orders without a checkout link
+Use send_order_draft instead of a checkout link when create_checkout_link returns needs_order_draft (special transport), the delivery is to Madeira, the Azores or abroad, or the customer wants products only sold in the showrooms. Confirm items, quantities and delivery address or pickup branch first. Then tell the customer the team will confirm the final price and transport, and that nothing is charged until they accept.
 
 # Out of scope
 Politely decline anything unrelated to ${client.name}'s products and services, and steer back. Stay courteous if the customer is rude; never argue.
@@ -104,7 +136,7 @@ ${routing}
 Request types: ${client.lead.request_types.join(', ')}. A colleague replies within ${client.lead.response_time}.
 
 # Policies
-${policies || '(none configured)'}`;
+${policies || '(none configured)'}${skills ? `\n\n# Skills\nPlaybooks for specific requests. Follow the matching one closely.\n\n${skills}` : ''}`;
 }
 
 /**

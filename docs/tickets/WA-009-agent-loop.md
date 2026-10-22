@@ -39,5 +39,5 @@ Keep history append-only between turns (no editing earlier messages) so caching 
 - Caching: the system prompt is frozen per client (no time, no customer) and cached; tools are sorted by name; a breakpoint on the customer's latest message lets the next turn read the conversation from cache. Per-turn facts (time in Lisbon, open branches, first contact) go in a `role: "system"` message after the conversation.
 - Earlier turns are replayed as text only, rebuilt deterministically from `messages`, in blocks of 100 so the prefix rarely moves.
 - Thinking stays on (Opus 5.5 default); effort comes from client config (`medium` for Jular). Server-side fallback (`fallbacks: "default"`) is on, so a policy refusal is retried on the fallback model; a turn that still ends in a refusal fails and gets the apology + handoff.
-- `offer_choices` (buttons or list under the reply) and `request_human` are always on; other tools are enabled per client in `tools:`.
+- `offer_choices` (buttons or list under the reply) and `request_human` (renamed `handoff_to_human` in WA-016) are always on; other tools are enabled per client in `tools:`.
 - The tool results Claude sees are JSON; expected failures (`ToolError`) come back with a code, unexpected ones as `internal_error`.
