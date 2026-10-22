@@ -35,7 +35,7 @@ const inputSchema = z.object({
 
 export const showProductsTool = defineTool({
   name: 'show_products',
-  description: `Show products to the customer in WhatsApp, after your text reply: 1 to 3 products are sent as photo cards (name, price with VAT, stock and link); 4 to 10 are sent as one list message the customer can tap to pick one (the pick comes back as "product:<variant_id>").
+  description: `Show products to the customer in WhatsApp, after your text reply: 1 to 3 products are sent as photo cards (name, price with VAT, stock and link); 4 to 10 are sent as one list message the customer can tap to pick one (the pick comes back as the row title followed by "[tapped: product:<variant_id>]").
 
 Use it when recommending specific products from search_products, typically 2 or 3. Your text reply should still say briefly why each fits; do not repeat every price and link that the cards already show. Returns what was queued and any variant ids that were not found.`,
   inputSchema,

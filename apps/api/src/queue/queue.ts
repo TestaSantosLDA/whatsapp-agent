@@ -14,6 +14,11 @@ export interface Queue {
   drain(): Promise<void>;
 }
 
+/** A failure that a retry cannot fix: the queue goes straight to the failure handler. */
+export class PermanentJobError extends Error {
+  override name = 'PermanentJobError';
+}
+
 export interface RetryOptions {
   attempts: number;
   baseDelayMs: number;
@@ -62,7 +67,7 @@ export class InProcessQueue implements Queue {
         await handler(job.payload);
         return;
       } catch (error) {
-        if (attempt >= this.retry.attempts) {
+        if (attempt >= this.retry.attempts || error instanceof PermanentJobError) {
           await Promise.resolve(this.onFailure(job, error)).catch((e: unknown) =>
             console.error('[queue] failure handler threw', e),
           );

@@ -6,13 +6,14 @@ import type {
   BetaMessageParam,
 } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import type { ClientConfig } from '@wa/shared';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull } from 'drizzle-orm';
 import type { OutboundMessage } from '../channels/channel.js';
 import type { Db } from '../db/index.js';
 import { agentRuns, contacts, conversations, messages } from '../db/schema.js';
 import type { Responder, TurnInput } from '../jobs/process-conversation.js';
+import { PermanentJobError } from '../queue/queue.js';
 import { toOutbound } from './format.js';
-import { toClaudeMessages } from './history.js';
+import { toClaudeMessages, type TurnLog } from './history.js';
 import { detectLanguage } from './language.js';
 import { estimateCost, type Usage } from './pricing.js';
 import { buildSystemPrompt, turnContext } from './prompt.js';
@@ -34,9 +35,14 @@ export interface ToolCallRecord {
   name: string;
   input: unknown;
   ok: boolean;
+  /** The JSON result Claude saw, shortened. Replayed in later turns. */
+  output?: string;
   error?: string;
   ms: number;
 }
+
+/** Longest tool result kept for later turns; search results are well under it. */
+const LOG_OUTPUT_MAX = 3000;
 
 /**
  * The agent (WA-009): one Claude tool-runner loop per customer turn. Claude sees the client's
@@ -116,7 +122,9 @@ export class ClaudeResponder implements Responder {
         .join('\n\n')
         .trim();
       if (!final || final.stop_reason === 'refusal' || (!text && ctx.outbox.length === 0)) {
-        throw new Error(`agent produced no reply (stop_reason ${final?.stop_reason ?? 'none'})`);
+        const reason = `agent produced no reply (stop_reason ${final?.stop_reason ?? 'none'})`;
+        // A refusal that survived the fallback will refuse again: hand over now, do not retry.
+        throw final?.stop_reason === 'refusal' ? new PermanentJobError(reason) : new Error(reason);
       }
       const said = newMessages.map((m) => m.text ?? '').join('\n');
       if (askForHuman.test(said) && !calls.some((c) => c.name === requestHuman.name && c.ok)) {
@@ -159,9 +167,15 @@ export class ClaudeResponder implements Responder {
       run: async (input) => {
         const t0 = Date.now();
         try {
-          const result = await tool.run(input, ctx);
-          calls.push({ name: tool.name, input, ok: true, ms: Date.now() - t0 });
-          return JSON.stringify(result);
+          const output = JSON.stringify(await tool.run(input, ctx));
+          calls.push({
+            name: tool.name,
+            input,
+            ok: true,
+            output: output.length > LOG_OUTPUT_MAX ? `${output.slice(0, LOG_OUTPUT_MAX)}…` : output,
+            ms: Date.now() - t0,
+          });
+          return output;
         } catch (error) {
           const expected = error instanceof ToolError;
           const message = error instanceof Error ? error.message : String(error);
@@ -205,7 +219,23 @@ export class ClaudeResponder implements Responder {
       .orderBy(asc(messages.createdAt), asc(messages.id));
     const start =
       Math.floor(Math.max(0, rows.length - HISTORY_BLOCK) / HISTORY_BLOCK) * HISTORY_BLOCK;
-    const history = toClaudeMessages(rows.slice(start));
+    const window = rows.slice(start);
+    const logs: TurnLog[] = window[0]
+      ? (
+          await this.deps.db
+            .select({ createdAt: agentRuns.createdAt, toolCalls: agentRuns.toolCalls })
+            .from(agentRuns)
+            .where(
+              and(
+                eq(agentRuns.conversationId, conversationId),
+                isNull(agentRuns.error),
+                gte(agentRuns.createdAt, window[0].createdAt),
+              ),
+            )
+            .orderBy(asc(agentRuns.createdAt))
+        ).map((r) => ({ createdAt: r.createdAt, toolCalls: r.toolCalls as TurnLog['toolCalls'] }))
+      : [];
+    const history = toClaudeMessages(window, logs);
 
     // Cache everything up to the customer's latest message; the next turn reads it back.
     const lastBlock = history.at(-1)?.content;

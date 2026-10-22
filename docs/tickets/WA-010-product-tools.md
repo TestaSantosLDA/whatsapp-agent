@@ -27,6 +27,6 @@ Use case 1, the product advisor: customers describe a need and get two or three 
 - Tools in `apps/api/src/agent/tools/`:
   - `search_products`: at most 8 compact results. `use` (e.g. "casa de banho") is added to the query.
   - `get_product`: full details, extras and the other variants. `show_to_customer` also queues the photo card.
-  - `show_products`: 1-3 products are sent as image cards (text when there is no image); 4-10 as one list message within WhatsApp limits (row title 24, description 72, 10 rows). A tapped row comes back as `product:<variant_id>`.
+  - `show_products`: 1-3 products are sent as image cards (text when there is no image); 4-10 as one list message within WhatsApp limits (row title 24, description 72, 10 rows). A tapped row reaches Claude as its title plus `[tapped: product:<variant_id>]` (`agent/history.ts`).
 - Thickness has no filter of its own: it goes in the query text ("10 mm"), since it lives in titles and descriptions rather than a structured field.
 - Search ignores accents only through Portuguese stemming: "oleo" does not match "óleo". Adding `unaccent` to the search vector would mean a migration; it waits until real queries show the need.

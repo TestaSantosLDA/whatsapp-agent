@@ -20,11 +20,11 @@ Use case 2. "How many boxes for 35 m²?" is the most common pre-sale question fo
 - [x] Unit tests: 35 m² at 2.22 m²/box with 7% waste → 17 boxes.
 - [x] Room "4 x 5 m" is converted to 20 m².
 - [x] Product without box data → tool returns `missing_data` (its message tells the agent not to guess and to offer a colleague).
-- [ ] Agent does not invent a number when the tool returns `missing_data`. Checked once the tool is registered with the agent (eval case in WA-019).
+- [ ] Agent does not invent a number when the tool returns `missing_data`. The tool is registered and enabled for Jular; still to check with an eval case in WA-019.
 
 ## Notes
 
-- Maths in `apps/api/src/calculator/quantity.ts` (pure, BigInt on scaled integers: 1/10 000 m², basis points, cents). Tool in `apps/api/src/agent/tools/calculate-quantity.ts`, exported but not registered yet.
+- Maths in `apps/api/src/calculator/quantity.ts` (pure, BigInt on scaled integers: 1/10 000 m², basis points, cents). Tool in `apps/api/src/agent/tools/calculate-quantity.ts`, registered in `apps/api/src/agent/registry.ts`.
 - Per-variant data is read from `products.extra` (`m2_per_box`, `price_unit: box | m2`, default `box`), with a fallback to client `product_data` keyed by SKU.
 - Prices are VAT included. With `price_unit: m2` the total is the m² price × the area the whole boxes cover.
 - `rooms` accepts "4 x 5", "4,5 x 3,2", cm, and several rooms or m² amounts summed; the perimeter for skirting is derived from the rooms when not given.

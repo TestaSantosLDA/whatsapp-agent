@@ -205,7 +205,8 @@ describe('ClaudeResponder', () => {
   });
 
   it('fails the turn on a refusal, so the customer gets the apology and a person', async () => {
-    const t = await setup([0, 1, 2].map(() => () => ({ content: [], stop_reason: 'refusal' })));
+    // One request only: a refusal is not retried.
+    const t = await setup([() => ({ content: [], stop_reason: 'refusal' })]);
     await t.send('Olá');
     const [conv] = await t.db.select().from(conversations);
     expect(conv?.status).toBe('human');
@@ -234,6 +235,39 @@ describe('ClaudeResponder with the product tools', () => {
     const out = await t.outbound();
     expect(out.map((m) => m.type)).toEqual(['text', 'image']);
     expect(out[0]?.text).toMatch(/vinílico/);
+  });
+});
+
+describe('ClaudeResponder across turns', () => {
+  it('still knows the variant id when the customer confirms the cart a turn later', async () => {
+    const client = shopClient({ tools: agentTools.map((t) => t.name) });
+    const t = await setup(
+      [
+        callTool('search_products', { query: 'pavimento vinílico' }),
+        say('O vinílico SPC custa X por caixa. Confirma 2 caixas?'),
+        (body) => {
+          const system = (body.messages as { role: string; content: unknown }[]).filter(
+            (m) => m.role === 'system',
+          );
+          // The earlier search result, with its variant id, is replayed before the earlier reply.
+          expect(String(system[0]!.content)).toContain(V.vinyl);
+          return callTool('create_checkout_link', {
+            items: [{ variant_id: V.vinyl, quantity: 2 }],
+          })(body);
+        },
+        (body) => {
+          expect(JSON.stringify((body.messages as unknown[]).at(-1))).toContain(
+            `/cart/${V.vinyl}:2`,
+          );
+          return say('Aqui está o link para finalizar a compra.')(body);
+        },
+      ],
+      { client, registry: agentTools },
+    );
+    await seedCatalogue(t.db, client);
+    await t.send('Queria pavimento vinílico');
+    await t.send('Sim, confirmo');
+    expect(t.requests).toHaveLength(4);
   });
 });
 

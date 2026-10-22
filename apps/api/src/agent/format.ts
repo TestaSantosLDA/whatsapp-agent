@@ -10,11 +10,10 @@ export function splitText(text: string, max = TEXT_MAX): string[] {
   let rest = text.trim();
   while (rest.length > max) {
     const window = rest.slice(0, max);
-    const cut =
-      Math.max(window.lastIndexOf('\n\n'), 0) ||
-      Math.max(window.lastIndexOf('\n'), 0) ||
-      window.lastIndexOf(' ');
-    const at = cut > max / 2 ? cut : max;
+    // The last paragraph break, line break or space in the second half of the window, in that
+    // order of preference; a hard cut only when there is none.
+    const at =
+      ['\n\n', '\n', ' '].map((sep) => window.lastIndexOf(sep)).find((i) => i > max / 2) ?? max;
     chunks.push(rest.slice(0, at).trim());
     rest = rest.slice(at).trim();
   }

@@ -67,7 +67,43 @@ describe('history', () => {
   });
 });
 
+describe('history with taps and tool logs', () => {
+  const at = (n: number) => new Date(Date.UTC(2026, 9, 19, 10, 0, n));
+  const row = (direction: 'inbound' | 'outbound', text: string, n: number, payload: unknown = {}) =>
+    ({ direction, text, type: 'text', createdAt: at(n), payload }) as MessageRow;
+
+  it('replays the id of a tapped list row', () => {
+    const tapped = row('inbound', 'Pavimento Vinílico SPC…', 1, {
+      interactive: { type: 'list_reply', list_reply: { id: 'product:123', title: 'x' } },
+    });
+    expect(toClaudeMessages([tapped])[0]!.content).toEqual([
+      { type: 'text', text: 'Pavimento Vinílico SPC… [tapped: product:123]' },
+    ]);
+  });
+
+  it("puts each turn's tool results in a system message before its reply", () => {
+    const log = {
+      createdAt: at(2),
+      toolCalls: [
+        { name: 'search_products', input: { query: 'deck' }, ok: true, output: '{"v":"9"}' },
+      ],
+    };
+    const orphan = { createdAt: at(4), toolCalls: [{ name: 'x', input: {}, ok: true }] };
+    const msgs = toClaudeMessages(
+      [row('inbound', 'Têm decks?', 1), row('outbound', 'Temos.', 3), row('inbound', 'Ok', 5)],
+      [log, orphan],
+    );
+    expect(msgs.map((m) => m.role)).toEqual(['user', 'system', 'assistant', 'user']);
+    expect(msgs[1]!.content).toContain('search_products {"query":"deck"} → {"v":"9"}');
+  });
+});
+
 describe('outbound formatting', () => {
+  it('cuts at the last line break or space when a paragraph break is too early', () => {
+    const chunks = splitText(`Olá.\n\n${'palavra '.repeat(600)}`);
+    expect(chunks.every((c) => !c.endsWith(' pa') && /palavra$/.test(c))).toBe(true);
+  });
+
   it('splits long text at paragraph boundaries', () => {
     const para = 'x'.repeat(3000);
     expect(splitText(`${para}\n\n${para}`)).toEqual([para, para]);
