@@ -1,0 +1,106 @@
+# Use case 5: handoff to a person, routed by branch and business line, with opening hours.
+# Times are Europe/Lisbon (UTC+1 until 25 Oct 2026). Camarate (default) opens Mon–Fri 9:00–13:00,
+# 14:00–18:00 and Sat 10:00–13:00; Albufeira is closed at weekends.
+- id: handoff-ask-person-pt
+  title: Falar com uma pessoa (em horário de expediente)
+  use_case: handoff
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Quero falar com uma pessoa, por favor.
+  checks:
+    status: human
+    lead: { type: handoff, branch: camarate }
+    emails: [handoff]
+  rubric: >-
+    Hands over at once without trying to keep the customer with the bot, and says a colleague
+    will reply here on WhatsApp shortly (the branch is open). Does not invent a person's name or
+    a time. European Portuguese, one or two sentences.
+
+- id: handoff-after-hours-pt
+  title: Pedido de contacto às 22:30
+  use_case: handoff
+  language: pt-PT
+  now: '2026-10-20T22:30:00+01:00'
+  turns:
+    - Boa noite, queria falar com alguém sobre um pavimento para a minha casa em Lisboa.
+  checks:
+    tools_called: [handoff_to_human]
+    status: human
+    lead: { type: handoff }
+    must_include: ['/amanhã|quarta/', '/\b9(:00|h)/']
+  rubric: >-
+    Hands over and says the store is closed now and a colleague will reply here tomorrow
+    (Wednesday) from 9:00, as the handoff tool returned. Does not say someone will reply
+    "shortly" or tonight. European Portuguese.
+
+- id: handoff-saturday-algarve-en
+  title: Saturday afternoon request for the Algarve store
+  use_case: handoff
+  language: en
+  now: '2026-10-24T16:00:00+01:00'
+  customer: { name: David Clarke }
+  turns:
+    - Hi, I'd like to talk to someone at your Algarve store about a deck for my villa in Lagos.
+  checks:
+    tools_called: [handoff_to_human]
+    status: human
+    lead: { type: handoff, branch: albufeira }
+    must_include: ['/monday/']
+  rubric: >-
+    Routes the handoff to the Sul (Albufeira) branch, says it is closed now and a colleague will
+    reply here on Monday at 9:00, from the tool's answer. English. No invented names or phone
+    calls promised.
+
+- id: handoff-damaged-goods-pt
+  title: Cliente zangado com tábuas partidas
+  use_case: handoff
+  language: pt-PT
+  now: '2026-10-21T09:45:00+01:00'
+  turns:
+    - A minha encomenda chegou com as tábuas todas partidas!!! Isto é uma vergonha, quero uma solução JÁ.
+  checks:
+    tools_called: [handoff_to_human]
+    status: human
+    must_not_include:
+      ['/reembolso (garantido|total)|vamos reembolsar|enviamos (novas|outras) tábuas/']
+  rubric: >-
+    Apologises sincerely and stays calm, hands over to a colleague (urgency high is a plus), and
+    says when a colleague will reply. May remind that damages should be noted on the transport
+    document (policy) but without blaming the customer. Does not promise a refund or a
+    replacement. European Portuguese.
+
+- id: handoff-large-deck-project-pt
+  title: Obra de deck com 450 m²
+  use_case: handoff
+  language: pt-PT
+  now: '2026-10-20T11:30:00+01:00'
+  customer: { name: Paulo Reis }
+  turns:
+    - Tenho uma obra de 450 m² de deck num condomínio em Cascais. Preciso de uma proposta.
+    - Chamo-me Paulo Reis, a obra começa em janeiro.
+  checks:
+    tools_called: [handoff_to_human]
+    status: human
+  rubric: >-
+    Decks above 300 m² are a configured handoff trigger, so the assistant passes the project to
+    a colleague to prepare a proposal (it may ask one or two short questions first). It does
+    not compute a total or offer a volume discount. European Portuguese.
+
+- id: handoff-then-silent-en
+  title: After a handoff the bot stays silent
+  use_case: handoff
+  language: en
+  now: '2026-10-21T16:00:00+01:00'
+  customer: { name: Chris Hall }
+  turns:
+    - Can I speak to a human please?
+    - Hello? Is anyone there?
+  checks:
+    status: human
+    lead: { type: handoff }
+    silent_turns: [2]
+  rubric: >-
+    Hands over in the first turn and says, in English, that a colleague will reply here shortly
+    (the branch is open). In the second turn the bot does not answer at all, because a colleague
+    has taken over.

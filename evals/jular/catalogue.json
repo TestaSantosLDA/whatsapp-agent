@@ -1,0 +1,575 @@
+{
+  "products": [
+    {
+      "id": 8101000000001,
+      "title": "Pavimento Vinílico SPC Carvalho Natural",
+      "handle": "pavimento-vinilico-spc-carvalho-natural",
+      "body_html": "<p>Pavimento vin&iacute;lico <strong>SPC</strong> 100% resistente &agrave; &aacute;gua, ideal para cozinhas e casas de banho.</p>\n<ul><li>Espessura: 5 mm&nbsp;</li><li>Caixa de 2,2 m&sup2;</li></ul>",
+      "published_at": "2026-03-01T10:00:00+00:00",
+      "created_at": "2026-03-01T10:00:00+00:00",
+      "updated_at": "2026-10-01T10:00:00+00:00",
+      "vendor": "Jular",
+      "product_type": "Pavimento Vinílico",
+      "tags": ["SPC", "vinílico", "resistente à água"],
+      "variants": [
+        {
+          "id": 46100000000011,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "sku": "VIN-SPC-CN",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "24.90",
+          "grams": 18000,
+          "compare_at_price": "29.90",
+          "position": 1,
+          "product_id": 8101000000001
+        }
+      ],
+      "images": [
+        {
+          "id": 3001,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/vinilico-carvalho.jpg",
+          "variant_ids": [],
+          "width": 1200,
+          "height": 1200
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": ["Default Title"]
+        }
+      ]
+    },
+    {
+      "id": 8101000000002,
+      "title": "Soalho Madeira Maciça Carvalho",
+      "handle": "soalho-madeira-macica-carvalho",
+      "body_html": "<p>Soalho em madeira maci&ccedil;a de carvalho europeu, acabamento envernizado. Para salas e quartos da sua casa.</p><p>N&atilde;o recomendado para zonas h&uacute;midas.</p>",
+      "vendor": "Jular",
+      "product_type": "Pavimento de Madeira Maciça",
+      "tags": ["madeira maciça", "carvalho", "interior"],
+      "variants": [
+        {
+          "id": 46100000000021,
+          "title": "14 mm",
+          "sku": "SOA-CAR-14",
+          "featured_image": {
+            "id": 3002,
+            "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/soalho-14.jpg"
+          },
+          "available": true,
+          "price": "54.00",
+          "compare_at_price": null
+        },
+        {
+          "id": 46100000000022,
+          "title": "20 mm",
+          "sku": "SOA-CAR-20",
+          "featured_image": null,
+          "available": false,
+          "price": "68.5",
+          "compare_at_price": null
+        }
+      ],
+      "images": [
+        {
+          "id": 3002,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/soalho-14.jpg",
+          "variant_ids": [46100000000021]
+        },
+        {
+          "id": 3003,
+          "src": "//cdn.shopify.com/s/files/1/0000/0001/products/soalho-20.jpg",
+          "variant_ids": [46100000000022]
+        }
+      ]
+    },
+    {
+      "id": 8101000000003,
+      "title": "Deck de Ipê 21 mm",
+      "handle": "deck-ipe-21mm",
+      "body_html": "<p>Deck em madeira de Ip&ecirc;, muito dur&aacute;vel no exterior: terra&ccedil;os, piscinas e jardins.</p>",
+      "vendor": "Jular",
+      "product_type": "Deck",
+      "tags": "deck, exterior, ipê",
+      "variants": [
+        {
+          "id": 46100000000031,
+          "title": "Default Title",
+          "sku": "DCK-IPE-21",
+          "available": true,
+          "price": "42.50",
+          "compare_at_price": ""
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": 8101000000004,
+      "title": "Osmo Óleo para Decks 016 Bangkirai",
+      "handle": "osmo-oleo-decks-016-bangkirai",
+      "body_html": "<p>&Oacute;leo natural Osmo para decks e mobili&aacute;rio de exterior. Real&ccedil;a a cor da madeira &amp; protege da humidade.</p>",
+      "vendor": "Osmo",
+      "product_type": "Óleos e Vernizes",
+      "tags": ["óleo", "exterior", "manutenção"],
+      "variants": [
+        {
+          "id": 46100000000041,
+          "title": "0,75 L",
+          "sku": "OSM-016-075",
+          "available": true,
+          "price": "32.95",
+          "compare_at_price": null
+        },
+        {
+          "id": 46100000000042,
+          "title": "2,5 L",
+          "sku": "OSM-016-25",
+          "available": true,
+          "price": "79.95",
+          "compare_at_price": null
+        }
+      ],
+      "images": [
+        {
+          "id": 3004,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/osmo-016.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000005,
+      "title": "Viga Lamelada Colada GL24h 12 m",
+      "handle": "viga-lamelada-gl24h-12m",
+      "body_html": "<p>Viga em madeira lamelada colada GL24h, 120&times;400 mm, comprimento 12 m.</p>",
+      "vendor": "Jular",
+      "product_type": "Estruturas",
+      "tags": ["Transporte Especial", "lamelado"],
+      "variants": [
+        {
+          "id": 46100000000051,
+          "title": "Default Title",
+          "sku": "GL24-12",
+          "available": true,
+          "price": "890.00",
+          "compare_at_price": null
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": 8101000000100,
+      "title": "Deck Compósito WPC Antracite",
+      "handle": "deck-composito-wpc-antracite",
+      "body_html": "<p>Deck comp&oacute;sito (madeira e pol&iacute;mero) cor antracite, sem manuten&ccedil;&atilde;o de &oacute;leo. Ideal para terra&ccedil;os e zonas de piscina.</p><ul><li>Caixa de 1,32 m&sup2;</li><li>Fixa&ccedil;&atilde;o com clips ocultos</li></ul>",
+      "vendor": "Jular",
+      "product_type": "Deck",
+      "tags": ["deck", "exterior", "compósito", "WPC"],
+      "variants": [
+        {
+          "id": 46100000000061,
+          "title": "Default Title",
+          "sku": "DCK-WPC-ANT",
+          "available": true,
+          "price": "49.90",
+          "compare_at_price": null,
+          "product_id": 8101000000100
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000101,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/deck-wpc-antracite.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000101,
+      "title": "Deck de Pinho Tratado Autoclave 27 mm",
+      "handle": "deck-pinho-tratado-autoclave-27mm",
+      "body_html": "<p>Deck em pinho nacional tratado em autoclave (classe de uso 4). Solu&ccedil;&atilde;o econ&oacute;mica para exterior. Pre&ccedil;o por m&sup2;; vendido em packs de 2 m&sup2;.</p>",
+      "vendor": "Jular",
+      "product_type": "Deck",
+      "tags": ["deck", "exterior", "pinho", "autoclave"],
+      "variants": [
+        {
+          "id": 46100000000071,
+          "title": "Default Title",
+          "sku": "DCK-PIN-27",
+          "available": true,
+          "price": "18.90",
+          "compare_at_price": null,
+          "product_id": 8101000000101
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000102,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/deck-pinho.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000102,
+      "title": "Pavimento Laminado AC4 Carvalho Cinza 8 mm",
+      "handle": "pavimento-laminado-ac4-carvalho-cinza-8mm",
+      "body_html": "<p>Pavimento laminado AC4, 8 mm, decorativo carvalho cinza. Para quartos, salas e escrit&oacute;rios. N&atilde;o indicado para casas de banho.</p><ul><li>Caixa de 2,131 m&sup2;</li></ul>",
+      "vendor": "Jular",
+      "product_type": "Pavimento Laminado",
+      "tags": ["laminado", "interior", "AC4"],
+      "variants": [
+        {
+          "id": 46100000000081,
+          "title": "Default Title",
+          "sku": "LAM-AC4-CC8",
+          "available": true,
+          "price": "21.50",
+          "compare_at_price": null,
+          "product_id": 8101000000102
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000103,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/laminado-carvalho-cinza.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000103,
+      "title": "Pavimento Flutuante Carvalho Rústico 3 Lâminas",
+      "handle": "pavimento-flutuante-carvalho-rustico-3-laminas",
+      "body_html": "<p>Pavimento flutuante em madeira de carvalho, tr&ecirc;s l&acirc;minas, acabamento oleado. Caixa de 2,4 m&sup2;.</p>",
+      "vendor": "Jular",
+      "product_type": "Pavimento de Madeira",
+      "tags": ["flutuante", "carvalho", "interior"],
+      "variants": [
+        {
+          "id": 46100000000091,
+          "title": "Default Title",
+          "sku": "FLU-CAR-3L",
+          "available": false,
+          "price": "89.90",
+          "compare_at_price": null,
+          "product_id": 8101000000103
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000104,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/flutuante-carvalho-rustico.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000104,
+      "title": "Osmo Óleo Cera Original 3032 Acetinado",
+      "handle": "osmo-oleo-cera-original-3032",
+      "body_html": "<p>&Oacute;leo-cera Osmo Polyx&reg; Original 3032, acetinado, para pavimentos e mobili&aacute;rio de madeira de interior.</p>",
+      "vendor": "Osmo",
+      "product_type": "Óleos e Vernizes",
+      "tags": ["óleo", "interior", "manutenção", "Polyx"],
+      "variants": [
+        {
+          "id": 46100000000101,
+          "title": "0,75 L",
+          "sku": "OSM-3032-075",
+          "available": true,
+          "price": "34.50",
+          "compare_at_price": null,
+          "product_id": 8101000000104
+        },
+        {
+          "id": 46100000000102,
+          "title": "2,5 L",
+          "sku": "OSM-3032-25",
+          "available": true,
+          "price": "98.90",
+          "compare_at_price": null,
+          "product_id": 8101000000104
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000105,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/osmo-3032.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000105,
+      "title": "Osmo Óleo para Decks 007 Teca Incolor",
+      "handle": "osmo-oleo-decks-007-teca",
+      "body_html": "<p>&Oacute;leo natural Osmo para decks de teca e madeiras ex&oacute;ticas, incolor.</p>",
+      "vendor": "Osmo",
+      "product_type": "Óleos e Vernizes",
+      "tags": ["óleo", "exterior", "manutenção"],
+      "variants": [
+        {
+          "id": 46100000000111,
+          "title": "0,75 L",
+          "sku": "OSM-007-075",
+          "available": true,
+          "price": "31.95",
+          "compare_at_price": null,
+          "product_id": 8101000000105
+        },
+        {
+          "id": 46100000000112,
+          "title": "2,5 L",
+          "sku": "OSM-007-25",
+          "available": true,
+          "price": "76.95",
+          "compare_at_price": null,
+          "product_id": 8101000000105
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000106,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/osmo-007.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000106,
+      "title": "Viga Lamelada Colada GL24h 6 m",
+      "handle": "viga-lamelada-gl24h-6m",
+      "body_html": "<p>Viga em madeira lamelada colada GL24h, 120&times;240 mm, comprimento 6 m.</p>",
+      "vendor": "Jular",
+      "product_type": "Estruturas",
+      "tags": ["Transporte Especial", "lamelado"],
+      "variants": [
+        {
+          "id": 46100000000121,
+          "title": "Default Title",
+          "sku": "GL24-06",
+          "available": true,
+          "price": "395.00",
+          "compare_at_price": null,
+          "product_id": 8101000000106
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": 8101000000107,
+      "title": "Painel CLT 3 Camadas 100 mm (por m²)",
+      "handle": "painel-clt-3-camadas-100mm",
+      "body_html": "<p>Painel de madeira contralaminada (CLT) de 3 camadas, 100 mm, abeto. Pre&ccedil;o por m&sup2;; corte &agrave; medida sob or&ccedil;amento.</p>",
+      "vendor": "Jular",
+      "product_type": "Estruturas",
+      "tags": ["Transporte Especial", "CLT"],
+      "variants": [
+        {
+          "id": 46100000000131,
+          "title": "Default Title",
+          "sku": "CLT-3C-100",
+          "available": true,
+          "price": "145.00",
+          "compare_at_price": null,
+          "product_id": 8101000000107
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": 8101000000108,
+      "title": "Treehouse Spot T1A",
+      "handle": "treehouse-spot-t1a",
+      "body_html": "<p>Casa modular em madeira Treehouse Spot, tipologia T1, constru&iacute;da em m&oacute;dulos de 22 m&sup2; na f&aacute;brica da Jular em Azambuja.</p>",
+      "vendor": "Jular",
+      "product_type": "Casas Modulares",
+      "tags": ["Treehouse", "Casas Modulares", "Transporte Especial"],
+      "variants": [
+        {
+          "id": 46100000000141,
+          "title": "Default Title",
+          "sku": "TH-SPOT-T1A",
+          "available": true,
+          "price": "54413.97",
+          "compare_at_price": null,
+          "product_id": 8101000000108
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000109,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/treehouse-spot-t1a.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000109,
+      "title": "Treehouse SW T2A",
+      "handle": "treehouse-sw-t2a",
+      "body_html": "<p>Casa modular em madeira Treehouse SW, tipologia T2, em m&oacute;dulos de 22 m&sup2;.</p>",
+      "vendor": "Jular",
+      "product_type": "Casas Modulares",
+      "tags": ["Treehouse", "Casas Modulares", "Transporte Especial"],
+      "variants": [
+        {
+          "id": 46100000000151,
+          "title": "Default Title",
+          "sku": "TH-SW-T2A",
+          "available": true,
+          "price": "90412.38",
+          "compare_at_price": null,
+          "product_id": 8101000000109
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000110,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/treehouse-sw-t2a.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000110,
+      "title": "Treehouse Douro T2",
+      "handle": "treehouse-douro-t2",
+      "body_html": "<p>Casa modular em madeira Treehouse Douro, tipologia T2, em m&oacute;dulos de 22 m&sup2;.</p>",
+      "vendor": "Jular",
+      "product_type": "Casas Modulares",
+      "tags": ["Treehouse", "Casas Modulares", "Transporte Especial"],
+      "variants": [
+        {
+          "id": 46100000000161,
+          "title": "Default Title",
+          "sku": "TH-DOURO-T2",
+          "available": true,
+          "price": "148743.90",
+          "compare_at_price": null,
+          "product_id": 8101000000110
+        }
+      ],
+      "images": [
+        {
+          "id": 8101000000111,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/treehouse-douro-t2.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000111,
+      "title": "Rodapé MDF Lacado Branco 70 mm",
+      "handle": "rodape-mdf-lacado-branco-70mm",
+      "body_html": "<p>Rodap&eacute; em MDF lacado branco, 70&times;12 mm, barra de 2,4 m.</p>",
+      "vendor": "Jular",
+      "product_type": "Rodapés e Acessórios",
+      "tags": ["rodapé", "acessórios", "interior"],
+      "variants": [
+        {
+          "id": 46100000000171,
+          "title": "Default Title",
+          "sku": "ROD-MDF-70",
+          "available": true,
+          "price": "6.90",
+          "compare_at_price": null,
+          "product_id": 8101000000111
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": 8101000000112,
+      "title": "Base Isolante para Pavimento Flutuante 3 mm",
+      "handle": "base-isolante-pavimento-flutuante-3mm",
+      "body_html": "<p>Base isolante ac&uacute;stica de 3 mm para pavimentos flutuantes e laminados. Rolo de 15 m&sup2;.</p>",
+      "vendor": "Jular",
+      "product_type": "Rodapés e Acessórios",
+      "tags": ["base", "isolamento", "acessórios"],
+      "variants": [
+        {
+          "id": 46100000000181,
+          "title": "Default Title",
+          "sku": "BAS-ISO-3",
+          "available": true,
+          "price": "29.90",
+          "compare_at_price": null,
+          "product_id": 8101000000112
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": 8101000000113,
+      "title": "Placa OSB3 18 mm 2500×1250",
+      "handle": "placa-osb3-18mm",
+      "body_html": "<p>Placa OSB3 de 18 mm, 2500&times;1250 mm, para uso estrutural em ambiente h&uacute;mido.</p>",
+      "vendor": "Jular",
+      "product_type": "Placas",
+      "tags": ["placas", "OSB"],
+      "variants": [
+        {
+          "id": 46100000000191,
+          "title": "Default Title",
+          "sku": "OSB3-18",
+          "available": true,
+          "price": "32.50",
+          "compare_at_price": null,
+          "product_id": 8101000000113
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": 8101000000114,
+      "title": "Ripado de Pinho para Revestimento de Parede",
+      "handle": "ripado-pinho-revestimento-parede",
+      "body_html": "<p>Ripado decorativo em pinho para revestimento de paredes interiores. Pre&ccedil;o por m&sup2;.</p>",
+      "vendor": "Jular",
+      "product_type": "Revestimentos",
+      "tags": ["revestimento", "ripado", "interior"],
+      "variants": [
+        {
+          "id": 46100000000201,
+          "title": "Default Title",
+          "sku": "RIP-PIN-01",
+          "available": true,
+          "price": "24.90",
+          "compare_at_price": null,
+          "product_id": 8101000000114
+        }
+      ],
+      "images": []
+    },
+    {
+      "id": 8101000000115,
+      "title": "Porta Interior Lacada Branca Lisa",
+      "handle": "porta-interior-lacada-branca-lisa",
+      "body_html": "<p>Porta interior de batente, lacada branca lisa, 80&times;203 cm, com aro e guarni&ccedil;&otilde;es.</p>",
+      "vendor": "Jular",
+      "product_type": "Portas",
+      "tags": ["portas", "interior"],
+      "variants": [
+        {
+          "id": 46100000000211,
+          "title": "Default Title",
+          "sku": "POR-LAC-80",
+          "available": true,
+          "price": "189.00",
+          "compare_at_price": null,
+          "product_id": 8101000000115
+        }
+      ],
+      "images": []
+    }
+  ]
+}
