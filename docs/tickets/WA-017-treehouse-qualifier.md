@@ -31,3 +31,8 @@ Implementation (M3):
 - The first criterion is covered by the prompt text and its test. It was not checked against the live model, because there is no API key yet.
 
 Still needed from Jular: what each price includes, lead times, who receives modular leads.
+
+Follow-up (#6 and M4 review fixes):
+
+- Skill field ids may not reuse a core lead key (name, location, timeline, phone, summary and the rest); the config loader rejects that. Core keys sent in `details` never replace the core values. When the core parameter is empty, they are used as its value.
+- Without `business_line`, the skill is inferred only from an answer to one of its required questions (for Treehouse, `use` or `land`). Its business line then routes the lead.

@@ -22,3 +22,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @wa/simulator build
+
+  # The deploy workflow only runs on main; building the image here catches a broken Dockerfile
+  # in the pull request.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t wa-api .

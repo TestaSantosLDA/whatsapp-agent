@@ -17,7 +17,9 @@
     "db:migrate": "pnpm --filter @wa/api run db:migrate",
     "db:generate": "pnpm --filter @wa/api run db:generate",
     "db:seed": "pnpm --filter @wa/api run db:seed",
-    "sync:catalogue": "pnpm --filter @wa/api run sync:catalogue"
+    "sync:catalogue": "pnpm --filter @wa/api run sync:catalogue",
+    "eval": "pnpm --filter @wa/api run eval",
+    "eval:compare": "pnpm --filter @wa/api run eval:compare"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

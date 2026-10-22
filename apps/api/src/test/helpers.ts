@@ -45,7 +45,7 @@ export async function testApp(
   opts: {
     clients?: ClientConfig[];
     env?: Record<string, string>;
-  } & Pick<AppDeps, 'responder' | 'queue' | 'debounceMs'> = {},
+  } & Pick<AppDeps, 'responder' | 'queue' | 'debounceMs' | 'serveSimulator'> = {},
 ) {
   const env = loadEnv({
     SIMULATOR_WEBHOOK_SECRET: SECRET,
@@ -62,6 +62,7 @@ export async function testApp(
     responder: opts.responder,
     queue: opts.queue,
     debounceMs: opts.debounceMs ?? 0,
+    serveSimulator: opts.serveSimulator ?? false,
   });
   return { ...built, env, db: handle.db, close: () => handle.close() };
 }

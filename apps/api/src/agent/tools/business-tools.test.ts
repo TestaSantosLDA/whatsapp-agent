@@ -185,6 +185,26 @@ describe('save_lead', () => {
     });
   });
 
+  it('does not pick a skill from an optional answer, and keeps a core field given in details', async () => {
+    const { ctx, db } = await context(jular);
+    await call(
+      saveLeadTool,
+      {
+        request_type: 'quote',
+        location: 'Faro',
+        summary: 'Deck de 40 m².',
+        details: { budget: '3 mil €', timeline: 'em maio' },
+      },
+      ctx,
+    );
+    const [lead] = await db.select().from(leads);
+    expect(lead).toMatchObject({
+      branchId: 'albufeira',
+      fields: expect.objectContaining({ budget: '3 mil €', timeline: 'em maio' }),
+    });
+    expect(lead?.fields).not.toHaveProperty('business_line');
+  });
+
   it('rejects an unknown request type or business line', async () => {
     const { ctx } = await context(jular);
     const base = { name: 'Ana', location: 'Porto', summary: 's' };

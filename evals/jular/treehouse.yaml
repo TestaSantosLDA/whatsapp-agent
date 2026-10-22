@@ -1,0 +1,106 @@
+# Use case 6: Treehouse modular houses, pre-sales qualification (skill `treehouse` in clients/jular.yaml).
+- id: treehouse-t2-price-pt
+  title: Quanto custa uma casa T2
+  use_case: treehouse
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Quanto custa uma casa T2 de madeira?
+  checks:
+    must_include: ['/90[.\s]?412[,.]38/', '/148[.\s]?743[,.]90/']
+    must_not_include:
+      ['/(o preço|que) inclui (as |a |o )?(fundaç|transporte|montagem|licenciamento)/']
+    lead: none
+  rubric: >-
+    Answers first with the two T2 models and prices (Treehouse SW T2A 90.412,38 € and Douro T2
+    148.743,90 €, VAT included), says what each price includes is to be confirmed by the
+    Treehouse team, then asks one or two qualifying questions (purpose, land) and/or offers a
+    visit to the Azambuja showroom. Never states what the price includes. European Portuguese.
+
+- id: treehouse-full-qualification-pt
+  title: Qualificação completa para alojamento local
+  use_case: treehouse
+  language: pt-PT
+  now: '2026-10-21T14:30:00+01:00'
+  customer: { name: Inês Rocha }
+  turns:
+    - Olá, estou interessada numa casa modular Treehouse para alojamento local.
+    - Tenho um terreno em Óbidos. Ainda não comecei o licenciamento.
+    - O orçamento é até 70 mil euros e gostava de ter a casa pronta no verão de 2027. Gostava de visitar o showroom num sábado.
+    - Sim, está tudo correto, pode registar.
+  checks:
+    tools_called: [save_lead]
+    lead: { type: quote, branch: azambuja }
+    emails: [lead]
+  rubric: >-
+    Follows the Treehouse playbook: asks one or two questions at a time (never a form), suggests
+    the Spot T1A (54.413,97 €) as the model within budget without promising it fits all costs,
+    offers the Azambuja showroom (Saturday 10:00–13:00) without booking a fixed slot, summarises
+    use, land (Óbidos), licensing, budget and timeline and asks for confirmation before saving,
+    then says the Treehouse team in Azambuja will contact her within one working day. pt-PT.
+
+- id: treehouse-included-en
+  title: What does the Spot T1A price include?
+  use_case: treehouse
+  language: en
+  now: '2026-10-22T10:00:00+01:00'
+  customer: { name: Peter Moore }
+  turns:
+    - Does the price of the Treehouse Spot T1A include the foundations, transport and assembly?
+  checks:
+    must_include: ['/confirm/']
+    must_not_include:
+      [
+        '/(yes|it does),? (it |the price )?includ/',
+        '/price includes (the )?(foundations|transport|assembly)/',
+      ]
+  rubric: >-
+    Says honestly that what the price includes (foundations, transport, assembly) is to be
+    confirmed with the Treehouse team, without guessing. May give the listed price (54.413,97 €
+    with VAT) and the 6-step process, then asks a qualifying question or offers the showroom or a
+    contact. English.
+
+- id: treehouse-newsletter-discount-pt
+  title: Desconto newsletter numa casa Treehouse
+  use_case: treehouse
+  language: pt-PT
+  now: '2026-10-20T16:00:00+01:00'
+  turns:
+    - Sou subscritor da newsletter. Tenho os 5% de desconto na Treehouse SW T2A?
+  checks:
+    must_include: ['/não (é |se )?(aplica|válid)|não (está |é )?inclu|exclu/']
+  rubric: >-
+    Says clearly that the 5% newsletter discount does not apply to modular houses (policy). Stays
+    positive: may give the SW T2A price (90.412,38 €) and offer to continue with qualification or
+    the showroom. European Portuguese.
+
+- id: treehouse-buy-now-link-pt
+  title: Pedido de link de pagamento para uma casa
+  use_case: treehouse
+  language: pt-PT
+  now: '2026-10-21T11:00:00+01:00'
+  turns:
+    - Quero comprar já a Treehouse Spot T1A. Envie-me o link de pagamento, por favor.
+  checks:
+    must_not_include: ['jular.pt/cart']
+    tools_not_called: [send_order_draft]
+  rubric: >-
+    Does not send a checkout link for a modular house. Explains warmly that a Treehouse goes
+    through a project process with the team (feasibility, design, licensing, factory build,
+    transport and assembly), starts qualifying (purpose, land) and/or offers the showroom, with a
+    view to saving a lead. Does not take payment or promise dates. European Portuguese.
+
+- id: treehouse-showroom-en
+  title: Visiting the Treehouse showroom on Saturday
+  use_case: treehouse
+  language: en
+  now: '2026-10-22T18:30:00+01:00'
+  customer: { name: Anna Schmidt }
+  turns:
+    - Where can I see a Treehouse house in person? Can I visit on Saturday?
+  checks:
+    must_include: ['Azambuja', '/\b10(:00|am| am)/']
+  rubric: >-
+    Says the Treehouse showroom is at the Azambuja HQ (Estrada Nacional 3, Km 5,9, Vila Nova da
+    Rainha) and is open on Saturday 10:00–13:00. Asks for a preferred day or offers to have the
+    team confirm, without claiming a booking was made. English.

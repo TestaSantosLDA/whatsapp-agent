@@ -69,10 +69,10 @@ One markdown file per ticket. A ticket is written and agreed before it is implem
 
 ### M4: Quality and deploy (demo online)
 
-| Ticket                       | Title                            | Depends on | Status |
-| ---------------------------- | -------------------------------- | ---------- | ------ |
-| [WA-019](WA-019-eval-set.md) | Eval set and model comparison    | M2, M3     | todo   |
-| [WA-020](WA-020-deploy.md)   | Deploy to Cloud Run and Supabase | M1–M3      | todo   |
+| Ticket                       | Title                            | Depends on | Status    |
+| ---------------------------- | -------------------------------- | ---------- | --------- |
+| [WA-019](WA-019-eval-set.md) | Eval set and model comparison    | M2, M3     | in review |
+| [WA-020](WA-020-deploy.md)   | Deploy to Cloud Run and Supabase | M1–M3      | in review |
 
 ### Backlog (after the demo)
 

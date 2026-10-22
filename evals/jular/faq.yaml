@@ -1,0 +1,129 @@
+# Use case 3: FAQ and policies (clients/jular.yaml `policies:` and branch hours).
+- id: faq-payment-methods-pt
+  title: Métodos de pagamento
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Que métodos de pagamento aceitam na loja online?
+  checks:
+    tools_not_called: [save_lead, handoff_to_human]
+    must_include: ['MB Way', 'Multibanco', 'Payshop', '/transfer[eê]ncia/']
+    must_not_include: ['/cart[aã]o de cr[eé]dito|paypal|\bvisa\b/']
+    status: bot
+  rubric: >-
+    Lists exactly the accepted methods from the policy (MB Way, Multibanco, Payshop, bank
+    transfer) and does not add others such as credit card or PayPal. Short, European Portuguese.
+
+- id: faq-pickup-en
+  title: Picking up an online order
+  use_case: faq
+  language: en
+  now: '2026-10-21T12:00:00+01:00'
+  customer: { name: Tom Evans }
+  turns:
+    - Can I pick up my online order in a store instead of delivery? How long does it take?
+  checks:
+    must_include: ['Camarate', '/2\s*(to|-|–|and)\s*4/']
+    status: bot
+  rubric: >-
+    Explains pickup from the policy: free at the Camarate store, usually ready in 2 to 4 days,
+    pickup hours Monday to Friday 9:00–13:00 and 14:00–18:00, to be collected within 15 working
+    days of the "order ready" email. English, concise.
+
+- id: faq-maia-saturday-hours-pt
+  title: Horário da Maia ao sábado
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-22T19:00:00+01:00'
+  turns:
+    - A loja da Maia está aberta ao sábado? A que horas?
+  checks:
+    must_include: ['/\b10(:00|h)/', '/\b13(:00|h)/']
+    tools_not_called: [handoff_to_human]
+  rubric: >-
+    Says the Maia (Norte) store opens on Saturday from 10:00 to 13:00, from the configured hours.
+    May add the address or phone from the config. Does not invent other hours. pt-PT.
+
+- id: faq-unloading-en
+  title: Will the truck unload?
+  use_case: faq
+  language: en
+  now: '2026-10-21T10:00:00+01:00'
+  customer: { name: Mark Davies }
+  turns:
+    - I'm ordering decking for delivery. Will the driver unload the pallets and carry them to my garden?
+  checks:
+    must_include: ['/unload/']
+    must_not_include: ['/(driver|they) will (unload|carry)/']
+  rubric: >-
+    Explains the unloading policy: transport does not include unloading, the truck has no crane
+    or platform, the customer unloads, the site needs truck access and someone present, failed
+    deliveries cost extra. Does not promise help carrying. English.
+
+- id: faq-delivery-date-pt
+  title: Pedido de data de entrega garantida
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Se encomendar hoje o deck de ipê, chega até sexta-feira? Preciso mesmo dele para sábado.
+  checks:
+    must_include:
+      [
+        '/indicativ|não (é possível|podemos|consigo|conseguimos) garantir|sem garantia|não (são |é )?garantid/',
+      ]
+    must_not_include: ['/(sim|claro),? (chega|vai chegar|recebe)/', '/garanto/']
+  rubric: >-
+    Never promises a delivery date. Explains that delivery times are only indicative (policy) and
+    offers useful alternatives: pickup at Camarate (usually ready in 2–4 days, still not a
+    guarantee) or a colleague to check. Polite, European Portuguese.
+
+- id: faq-madeira-shipping-pt
+  title: Envio para a Madeira
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-21T10:00:00+01:00'
+  turns:
+    - Enviam para o Funchal? Quanto custa o envio de umas caixas de pavimento?
+  checks:
+    tools_not_called: [create_checkout_link]
+    must_include: ['/log[ií]stica|orçament/']
+  rubric: >-
+    Says shipping to Madeira is quoted afterwards by the Logistics Department (policy) and does
+    not quote a shipping price. Offers to pass an order to the team (order draft) or asks which
+    product and quantity. European Portuguese.
+
+- id: faq-discount-request-pt
+  title: Pedido de desconto de 15%
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Se comprar 100 m² de deck compósito fazem-me 15% de desconto?
+  checks:
+    must_include: ['/5 ?%/', 'newsletter']
+    must_not_include:
+      [
+        '/(sim|claro),? (fazemos|podemos|damos|é possível)/',
+        '/15 ?% (está |fica )?(garantid|aprovad|confirmad)/',
+      ]
+  rubric: >-
+    Does not grant or promise the 15% discount. States the only discount in the policy (5% on the
+    first purchase for newsletter subscribers) and offers a colleague or a quote request for a
+    large order, where the team can look at pricing. Friendly, European Portuguese.
+
+- id: faq-returns-en
+  title: Return policy
+  use_case: faq
+  language: en
+  now: '2026-10-22T10:00:00+01:00'
+  customer: { name: Lucy Green }
+  turns:
+    - What's your return policy? How many days do I have to return a product?
+  checks:
+    must_include: ['refund-policy']
+    must_not_include: ['/\b(14|15|30) days to return/', '/within (14|15|30) days/']
+  rubric: >-
+    Points to the refund policy page (https://loja.jular.pt/policies/refund-policy) and the
+    contacts lojaonline@jular.pt / +351 219 484 000, without inventing a return window. English.

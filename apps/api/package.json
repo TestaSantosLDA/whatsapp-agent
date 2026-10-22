@@ -3,6 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist",
+    "drizzle",
+    "public"
+  ],
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/server.ts",
     "start": "node dist/server.js",
@@ -12,7 +17,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/scripts/migrate.ts",
     "db:seed": "tsx src/scripts/seed.ts",
-    "sync:catalogue": "tsx src/scripts/sync-catalogue.ts"
+    "sync:catalogue": "tsx src/scripts/sync-catalogue.ts",
+    "eval": "tsx src/evals/cli.ts",
+    "eval:compare": "tsx src/evals/compare.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
