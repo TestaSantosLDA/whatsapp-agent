@@ -150,6 +150,41 @@ describe('save_lead', () => {
     expect(email?.body).toContain('Sim, em Óbidos');
   });
 
+  it('never lets skill answers replace the core fields', async () => {
+    const { ctx, db } = await context(jular);
+    await call(
+      saveLeadTool,
+      {
+        request_type: 'quote',
+        location: 'Óbidos, Leiria',
+        timeline: 'em junho',
+        summary: 'Casa T2.',
+        details: { use: 'casa', land: 'sim', phone: '+1', summary: 'x', timeline: 'nunca' },
+      },
+      ctx,
+    );
+    const [lead] = await db.select().from(leads);
+    expect(lead?.fields).toMatchObject({
+      phone: `+${PHONE}`,
+      summary: 'Casa T2.',
+      timeline: 'em junho',
+      use: 'casa',
+    });
+  });
+
+  it('finds the Treehouse skill by its answers when the business line is left out', async () => {
+    const { ctx, db } = await context(jular);
+    const base = { request_type: 'quote', location: 'Porto', summary: 'Casa T1.' };
+    const error = await toolError(call(saveLeadTool, { ...base, details: { use: 'casa' } }, ctx));
+    expect(error.message).toContain('details.land');
+    await call(saveLeadTool, { ...base, details: { use: 'casa', land: 'sim, na Maia' } }, ctx);
+    const [lead] = await db.select().from(leads);
+    expect(lead).toMatchObject({
+      branchId: 'azambuja',
+      fields: expect.objectContaining({ business_line: 'casas-modulares' }),
+    });
+  });
+
   it('rejects an unknown request type or business line', async () => {
     const { ctx } = await context(jular);
     const base = { name: 'Ana', location: 'Porto', summary: 's' };

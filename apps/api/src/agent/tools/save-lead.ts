@@ -1,4 +1,4 @@
-import type { LeadField } from '@wa/shared';
+import { coreLeadKeys, type LeadField } from '@wa/shared';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { messages } from '../../db/schema.js';
@@ -106,12 +106,20 @@ Returns who will contact the customer and the response time from the company's s
         `Still missing: ${missing.map((f) => fieldPrompts[f]).join('; ')}. Ask the customer for one or two of these at a time, then call save_lead again with everything.`,
       );
     }
-    // A skill for this business line adds its own required questions (WA-017).
-    const skill = input.business_line
-      ? client.skills.find((s) => s.business_line === input.business_line)
-      : undefined;
+    // Skill answers never replace the core fields (WA-017).
+    const details = Object.fromEntries(
+      Object.entries(input.details ?? {}).filter(([id]) => !coreLeadKeys.includes(id)),
+    );
+    // A skill adds its own required questions. It is found by business line, or by its answers
+    // when the model left the business line out; then its business line routes the lead.
+    const skill =
+      client.skills.find((s) => input.business_line && s.business_line === input.business_line) ??
+      (input.business_line
+        ? undefined
+        : client.skills.find((s) => s.lead_fields.some((f) => f.id in details)));
+    const businessLine = input.business_line ?? skill?.business_line;
     const missingDetails = (skill?.lead_fields ?? []).filter(
-      (f) => f.required && !input.details?.[f.id]?.trim(),
+      (f) => f.required && !details[f.id]?.trim(),
     );
     if (missingDetails.length) {
       throw new ToolError(
@@ -125,10 +133,10 @@ Returns who will contact the customer and the response time from the company's s
         `Request type must be one of: ${client.lead.request_types.join(', ')}.`,
       );
     }
-    const line = input.business_line
-      ? client.business_lines.find((l) => l.id === input.business_line)
+    const line = businessLine
+      ? client.business_lines.find((l) => l.id === businessLine)
       : undefined;
-    if (input.business_line && !line) {
+    if (businessLine && !line) {
       throw new ToolError(
         'unknown_business_line',
         `Business line ids: ${client.business_lines.map((l) => l.id).join(', ')}.`,
@@ -137,21 +145,21 @@ Returns who will contact the customer and the response time from the company's s
 
     const branch = input.branch_id
       ? findBranch(client, input.branch_id)
-      : routeBranch(client, { location: input.location, business_line: input.business_line });
+      : routeBranch(client, { location: input.location, business_line: businessLine });
     const requestType = input.request_type ?? client.lead.request_types[0]!;
     const attachments = await conversationAttachments(ctx);
     const fields = compact({
+      ...details,
       request_type: requestType,
       name,
       phone: `+${ctx.contact.waId}`,
       email: input.email,
       location: input.location,
-      business_line: input.business_line,
+      business_line: businessLine,
       products: input.products,
       area_m2: input.area_m2,
       timeline: input.timeline,
       summary: input.summary,
-      ...input.details,
       attachments: attachments.length ? attachments : undefined,
     });
 
@@ -169,7 +177,7 @@ Returns who will contact the customer and the response time from the company's s
         summary: input.summary,
         fields: [
           ...emailFields(input, line?.name, requestType),
-          ...Object.entries(input.details ?? {}).map(([id, value]): [string, string] => [
+          ...Object.entries(details).map(([id, value]): [string, string] => [
             skill?.lead_fields.find((f) => f.id === id)?.ask.replace(/\.$/, '') ?? id,
             value,
           ]),

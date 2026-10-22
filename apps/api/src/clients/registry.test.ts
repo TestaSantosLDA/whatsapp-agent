@@ -30,6 +30,21 @@ describe('client config', () => {
     expect(() => parseClientConfig(stringify(bad), 'x.yaml')).toThrow(/unknown branch porto/);
   });
 
+  it("rejects a skill with an unknown business line or a field id that clashes with the lead's", () => {
+    const skill = { id: 's', name: 'S', when: 'w', instructions: 'i' };
+    const unknownLine = { ...testClient(), skills: [{ ...skill, business_line: 'houses' }] };
+    expect(() => parseClientConfig(stringify(unknownLine), 'x.yaml')).toThrow(
+      /unknown business line houses/,
+    );
+    const clash = {
+      ...testClient(),
+      skills: [{ ...skill, lead_fields: [{ id: 'phone', ask: 'a' }] }],
+    };
+    expect(() => parseClientConfig(stringify(clash), 'x.yaml')).toThrow(
+      /phone is a core lead field/,
+    );
+  });
+
   it('looks clients up by id and by phone number id, and refuses duplicates', () => {
     const a = testClient();
     const b = testClient({

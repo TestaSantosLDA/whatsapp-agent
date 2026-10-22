@@ -82,6 +82,14 @@ export const leadFieldSchema = z.enum([
 ]);
 export type LeadField = z.infer<typeof leadFieldSchema>;
 
+/** Keys a lead always has; a skill's lead fields must use other ids so they never replace them. */
+export const coreLeadKeys: readonly string[] = [
+  ...leadFieldSchema.options,
+  'phone',
+  'summary',
+  'attachments',
+];
+
 /** Where leads go besides the database, which is always on. */
 export const leadSinkSchema = z.enum(['db', 'sheets']);
 export type LeadSinkName = z.infer<typeof leadSinkSchema>;

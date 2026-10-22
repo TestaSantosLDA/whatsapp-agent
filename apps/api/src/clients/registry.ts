@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { clientConfigSchema, type ClientConfig } from '@wa/shared';
+import { clientConfigSchema, coreLeadKeys, type ClientConfig } from '@wa/shared';
 import { parse } from 'yaml';
 
 export class ClientRegistry {
@@ -51,6 +51,20 @@ export function parseClientConfig(yamlText: string, source: string): ClientConfi
   if (badRefs.length) {
     throw new Error(
       `Invalid client config ${source}:\n  - routing: unknown branch ${badRefs.join(', ')}`,
+    );
+  }
+  const lineIds = new Set(config.business_lines.map((l) => l.id));
+  const skillErrors = config.skills.flatMap((skill, i) => [
+    ...(skill.business_line && !lineIds.has(skill.business_line)
+      ? [`skills.${i}.business_line: unknown business line ${skill.business_line}`]
+      : []),
+    ...skill.lead_fields
+      .filter((f) => coreLeadKeys.includes(f.id))
+      .map((f) => `skills.${i}.lead_fields: ${f.id} is a core lead field; use another id`),
+  ]);
+  if (skillErrors.length) {
+    throw new Error(
+      `Invalid client config ${source}:\n${skillErrors.map((e) => `  - ${e}`).join('\n')}`,
     );
   }
   if (config.lead.sinks.includes('sheets') && !config.lead.sheets) {
