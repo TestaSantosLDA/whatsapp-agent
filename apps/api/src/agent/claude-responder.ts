@@ -9,6 +9,8 @@ import type { ClientConfig } from '@wa/shared';
 import { and, asc, eq, gte, isNull } from 'drizzle-orm';
 import type { OutboundMessage } from '../channels/channel.js';
 import type { Db } from '../db/index.js';
+import { LeadSinks } from '../leads/sink.js';
+import { OutboxMailer, type Mailer } from '../mail/mailer.js';
 import type { BackofficeService } from '../services/backoffice.js';
 import { agentRuns, contacts, conversations, messages } from '../db/schema.js';
 import type { Responder, TurnInput } from '../jobs/process-conversation.js';
@@ -20,12 +22,12 @@ import { estimateCost, type Usage } from './pricing.js';
 import { buildSystemPrompt, turnContext } from './prompt.js';
 import { ToolError, type AgentTool, type ToolContext } from './tool.js';
 import { offerChoices } from './tools/offer-choices.js';
-import { requestHuman } from './tools/request-human.js';
+import { handoffToHuman } from './tools/handoff-to-human.js';
 
 /** Tools every client gets. The rest are enabled per client in config `tools:`. */
-const coreTools: AgentTool[] = [offerChoices, requestHuman];
+const coreTools: AgentTool[] = [offerChoices, handoffToHuman];
 
-/** Asking for a person always reaches one, even if the model forgets to call request_human. */
+/** Asking for a person always reaches one, even if the model forgets to call handoff_to_human. */
 const askForHuman =
   /\b(falar|conversar)\s+com\s+(uma?\s+)?(pessoa|humano|colega|algu[eé]m|funcion[aá]rio|comercial)|\b(talk|speak)\s+to\s+(a\s+)?(human|person|someone|agent)/i;
 
@@ -52,6 +54,8 @@ const LOG_OUTPUT_MAX = 3000;
  */
 export class ClaudeResponder implements Responder {
   private readonly systemPrompts = new Map<string, string>();
+  private readonly leads: LeadSinks;
+  private readonly mailer: Mailer;
 
   constructor(
     private readonly deps: {
@@ -62,8 +66,15 @@ export class ClaudeResponder implements Responder {
       now?: () => Date;
       maxIterations?: number;
       backoffice?: BackofficeService;
+      /** Default: the database only. */
+      leads?: LeadSinks;
+      /** Default: the outbox only (demo mode). */
+      mailer?: Mailer;
     },
-  ) {}
+  ) {
+    this.leads = deps.leads ?? new LeadSinks({ db: deps.db, backoffice: deps.backoffice });
+    this.mailer = deps.mailer ?? new OutboxMailer({ db: deps.db, backoffice: deps.backoffice });
+  }
 
   async respond({
     client,
@@ -100,6 +111,7 @@ export class ClaudeResponder implements Responder {
 
     try {
       contact = await this.updateLanguage(contact, newMessages);
+      const now = this.deps.now?.() ?? new Date();
       const ctx: ToolContext = {
         db: this.deps.db,
         client,
@@ -107,6 +119,9 @@ export class ClaudeResponder implements Responder {
         contact,
         outbox: [],
         backoffice: this.deps.backoffice,
+        leads: this.leads,
+        mailer: this.mailer,
+        now,
       };
       const runner = this.deps.anthropic.beta.messages.toolRunner({
         model: client.model.id,
@@ -115,7 +130,7 @@ export class ClaudeResponder implements Responder {
           { type: 'text', text: this.systemPrompt(client), cache_control: { type: 'ephemeral' } },
         ],
         tools: this.toolsFor(client).map((tool) => this.wrap(tool, ctx, calls)),
-        messages: await this.buildMessages(client, conversation.id, contact),
+        messages: await this.buildMessages(client, conversation.id, contact, now),
         output_config: { effort: client.model.effort },
         // On a policy refusal, retry on the model's default fallback instead of failing the turn.
         betas: ['server-side-fallback-2026-07-01'],
@@ -141,9 +156,12 @@ export class ClaudeResponder implements Responder {
         throw final?.stop_reason === 'refusal' ? new PermanentJobError(reason) : new Error(reason);
       }
       const said = newMessages.map((m) => m.text ?? '').join('\n');
-      if (askForHuman.test(said) && !calls.some((c) => c.name === requestHuman.name && c.ok)) {
-        await requestHuman.run({ reason: 'customer_asked', summary: said.slice(0, 1000) }, ctx);
-        calls.push({ name: requestHuman.name, input: { forced: true }, ok: true, ms: 0 });
+      if (askForHuman.test(said) && !calls.some((c) => c.name === handoffToHuman.name && c.ok)) {
+        await handoffToHuman.run(
+          { reason: 'customer_asked', urgency: 'normal', summary: said.slice(0, 1000) },
+          ctx,
+        );
+        calls.push({ name: handoffToHuman.name, input: { forced: true }, ok: true, ms: 0 });
       }
       await record();
       return toOutbound(text, ctx, contact.language ?? client.default_language);
@@ -225,6 +243,7 @@ export class ClaudeResponder implements Responder {
     client: ClientConfig,
     conversationId: string,
     contact: TurnInput['contact'],
+    now: Date,
   ): Promise<BetaMessageParam[]> {
     const rows = await this.deps.db
       .select()
@@ -272,7 +291,7 @@ export class ClaudeResponder implements Responder {
         content: turnContext({
           client,
           contact,
-          now: this.deps.now?.() ?? new Date(),
+          now,
           firstContact: !earlier,
         }),
       },

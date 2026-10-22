@@ -7,6 +7,7 @@ import { EventBus } from '../bus.js';
 import { buildSimulatedWebhook } from '../channels/simulator.js';
 import type { ClientRegistry } from '../clients/registry.js';
 import type { Env } from '../env.js';
+import type { BackofficeService } from '../services/backoffice.js';
 import { toSimChatMessage, type MessageService } from '../services/messages.js';
 
 const phoneSchema = z.string().regex(/^\d{6,15}$/, 'phone must be 6 to 15 digits');
@@ -37,6 +38,8 @@ export function simulatorRoutes(deps: {
   clients: ClientRegistry;
   messages: MessageService;
   bus: EventBus;
+  /** Told when a conversation goes back to the bot. */
+  backoffice?: BackofficeService;
   /** Delivers a webhook body to POST /webhook/simulator in-process. */
   postWebhook: (body: unknown) => Promise<Response>;
 }) {
@@ -143,6 +146,18 @@ export function simulatorRoutes(deps: {
       messages: [],
       conversationStatus: 'bot',
     });
+    return c.body(null, 204);
+  });
+
+  // Back-office command (WA-016): a colleague hands the conversation back to the bot.
+  app.post('/:clientId/conversation/bot', async (c) => {
+    const client = simClient(c.req.param('clientId'));
+    if (!client) return c.json({ error: 'unknown client' }, 404);
+    const phone = phoneSchema.safeParse(c.req.query('phone'));
+    if (!phone.success) return c.json({ error: 'bad phone' }, 400);
+    const updated = await deps.messages.setConversationStatus(client.id, phone.data, 'bot');
+    if (!updated) return c.json({ error: 'no open conversation' }, 404);
+    deps.backoffice?.publishStatus(client.id, phone.data, 'bot');
     return c.body(null, 204);
   });
 

@@ -22,6 +22,9 @@ import {
   type ProcessConversationPayload,
   type Responder,
 } from './jobs/process-conversation.js';
+import { parseServiceAccount, GoogleSheetsLeadSink } from './leads/sheets.js';
+import { LeadSinks, type LeadSink } from './leads/sink.js';
+import { mailerFromEnv } from './mail/mailer.js';
 import { InProcessQueue, type Queue } from './queue/queue.js';
 import { jobsRoutes } from './routes/jobs.js';
 import { simulatorRoutes } from './routes/simulator.js';
@@ -58,7 +61,7 @@ export function createApp(deps: AppDeps) {
   ]);
   const messages = new MessageService(deps.db, bus, channels);
   const backoffice = new BackofficeService(deps.db, new EventBus<BackofficeEvent>());
-  const jobDeps = { db: deps.db, clients: deps.clients, messages };
+  const jobDeps = { db: deps.db, clients: deps.clients, messages, backoffice };
   const onFailure = onProcessConversationFailure(jobDeps);
   const queue =
     deps.queue ??
@@ -105,6 +108,7 @@ export function createApp(deps: AppDeps) {
       clients: deps.clients,
       messages,
       bus,
+      backoffice,
       postWebhook: (body) =>
         Promise.resolve(
           webhook.request('/simulator', {
@@ -134,10 +138,16 @@ function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Respond
     );
     return new EchoResponder(deps.env.PUBLIC_BASE_URL);
   }
+  const sinks: LeadSink[] = [];
+  if (deps.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    sinks.push(new GoogleSheetsLeadSink(parseServiceAccount(deps.env.GOOGLE_SERVICE_ACCOUNT_JSON)));
+  }
   return new ClaudeResponder({
     db: deps.db,
     anthropic: new Anthropic({ apiKey: deps.env.ANTHROPIC_API_KEY }),
     tools: agentTools,
     backoffice,
+    leads: new LeadSinks({ db: deps.db, backoffice, sinks }),
+    mailer: mailerFromEnv({ db: deps.db, backoffice, resendApiKey: deps.env.RESEND_API_KEY }),
   });
 }

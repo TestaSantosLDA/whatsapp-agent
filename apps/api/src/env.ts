@@ -21,6 +21,10 @@ const envSchema = z.object({
   PUBLIC_BASE_URL: z.string().default('http://localhost:3000'),
   /** Shared secret schedulers send as `x-jobs-secret` to /jobs/*. Empty = jobs routes disabled. */
   JOBS_SECRET: z.string().min(16).optional(),
+  /** Empty = emails stop at the outbox table and the back-office panel (demo mode). */
+  RESEND_API_KEY: z.string().optional(),
+  /** Google service account key file contents (JSON), for the Google Sheets lead sink. */
+  GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

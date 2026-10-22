@@ -20,6 +20,8 @@ export const branchSchema = z.object({
   hours: openingHoursSchema,
   business_lines: z.array(z.string()),
   notes: z.string().optional(),
+  /** Who receives this branch's leads, handoffs and order drafts. Empty = the branch `email`. */
+  lead_emails: z.array(z.string()).default([]),
 });
 export type Branch = z.infer<typeof branchSchema>;
 
@@ -39,6 +41,26 @@ export const channelConfigSchema = z.discriminatedUnion('type', [
   }),
 ]);
 export type ChannelConfig = z.infer<typeof channelConfigSchema>;
+
+/**
+ * Lead fields the agent can collect with save_lead (WA-014). `lead.required_fields` names a
+ * subset; the phone is always known from WhatsApp.
+ */
+export const leadFieldSchema = z.enum([
+  'name',
+  'email',
+  'location',
+  'request_type',
+  'business_line',
+  'products',
+  'area_m2',
+  'timeline',
+]);
+export type LeadField = z.infer<typeof leadFieldSchema>;
+
+/** Where leads go besides the database, which is always on. */
+export const leadSinkSchema = z.enum(['db', 'sheets']);
+export type LeadSinkName = z.infer<typeof leadSinkSchema>;
 
 export const clientConfigSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
@@ -74,9 +96,26 @@ export const clientConfigSchema = z.object({
   }),
   lead: z.object({
     request_types: z.array(z.string()).min(1),
-    required_fields: z.array(z.string()).default([]),
+    required_fields: z.array(leadFieldSchema).default([]),
     response_time: z.string(),
+    /** Extra sinks; `db` is always written whether listed or not. */
+    sinks: z.array(leadSinkSchema).default(['db']),
+    /** Google Sheet the `sheets` sink appends to (service account from the environment). */
+    sheets: z
+      .object({ spreadsheet_id: z.string().min(1), sheet_name: z.string().default('Leads') })
+      .optional(),
+    /** Branch whose team receives order drafts for delivery. Default: routing.default_branch. */
+    order_branch: z.string().optional(),
   }),
+  /** Business emails (WA-015). `from` must be a sender the mail provider accepts. */
+  mail: z
+    .object({
+      from: z.string().default('Assistente WhatsApp <noreply@example.invalid>'),
+      reply_to: z.string().optional(),
+    })
+    .prefault({}),
+  /** Extra situations, beyond the built-in ones, in which the agent hands over to a person. */
+  handoff: z.object({ triggers: z.array(z.string()).default([]) }).prefault({}),
   tools: z.array(z.string()).default([]),
   model: z
     .object({
