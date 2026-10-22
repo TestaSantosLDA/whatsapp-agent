@@ -60,6 +60,8 @@ branches:
     phone: '+351 263 850 070'
     mobile: '+351 919 999 960'
     # TODO: branch email unknown.
+    # TODO: real lead recipients from Jular; placeholder until then.
+    lead_emails: [azambuja@example.invalid]
     hours:
       mon: ['08:00-13:00', '14:00-18:00']
       tue: ['08:00-13:00', '14:00-18:00']
@@ -76,6 +78,8 @@ branches:
     phone: '+351 229 953 638'
     mobile: '+351 919 550 654'
     # TODO: branch email unknown.
+    # TODO: real lead recipients from Jular; placeholder until then.
+    lead_emails: [maia@example.invalid]
     hours:
       mon: ['08:30-12:30', '14:00-18:30']
       tue: ['08:30-12:30', '14:00-18:30']
@@ -92,6 +96,8 @@ branches:
     phone: '+351 219 484 000'
     mobile: '+351 919 999 666'
     email: lojaonline@jular.pt
+    # TODO: confirm with Jular who receives leads (lojaonline@jular.pt?); placeholder until then.
+    lead_emails: [camarate@example.invalid]
     hours:
       mon: ['09:00-13:00', '14:00-18:00']
       tue: ['09:00-13:00', '14:00-18:00']
@@ -109,6 +115,8 @@ branches:
     phone: '+351 289 588 538'
     mobile: '+351 916 895 885'
     # TODO: branch email unknown.
+    # TODO: real lead recipients from Jular; placeholder until then.
+    lead_emails: [albufeira@example.invalid]
     hours: # closed Saturday and Sunday
       mon: ['09:00-13:00', '14:00-18:00']
       tue: ['09:00-13:00', '14:00-18:00']
@@ -117,7 +125,7 @@ branches:
       fri: ['09:00-13:00', '14:00-18:00']
     business_lines: [madeiras-revestimentos]
 
-# TODO: lead recipients per branch (who receives each lead) still to come from Jular.
+# Leads, handoffs and order drafts are emailed to the routed branch's lead_emails.
 routing:
   default_branch: camarate
   rules:
@@ -139,16 +147,37 @@ lead:
   required_fields: [name, location, request_type]
   # TODO: confirm the response time with Jular.
   response_time: um dia útil
+  # The database is always written. Add `sheets` and the block below once Jular shares a sheet
+  # with the service account in GOOGLE_SERVICE_ACCOUNT_JSON.
+  sinks: [db]
+  # sheets:
+  #   spreadsheet_id: <id from the sheet URL>
+  #   sheet_name: Leads
+  # Order drafts for delivery go to the online store team.
+  order_branch: camarate
+
+# TODO: a sender on a domain verified in Resend (e.g. assistente@jular.pt).
+mail:
+  from: Assistente WhatsApp Jular <noreply@example.invalid>
+
+# Situations, beyond the built-in ones, in which the agent hands over to a colleague.
+# TODO: confirm the thresholds with Jular.
+handoff:
+  triggers:
+    - O cliente pede uma visita técnica, uma medição em obra ou uma reunião.
+    - Obras de pavimento ou deck acima de 300 m², para a equipa preparar uma proposta.
 
 privacy_policy_url: https://jular.pt/politica-de-privacidade
 
-# Agent tools (apps/api/src/agent/registry.ts). offer_choices and request_human are always on.
+# Agent tools (apps/api/src/agent/registry.ts). offer_choices and handoff_to_human are always on.
 tools:
   - search_products
   - get_product
   - show_products
   - calculate_quantity
   - create_checkout_link
+  - save_lead
+  - send_order_draft
 
 model:
   id: claude-opus-5-5

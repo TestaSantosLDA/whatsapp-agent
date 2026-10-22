@@ -214,6 +214,18 @@ export function simulatorRoutes(deps: {
     return c.body(null, 204);
   });
 
+  // Back-office command (WA-016): a colleague hands the conversation back to the bot.
+  app.post('/:clientId/conversation/bot', async (c) => {
+    const client = simClient(c.req.param('clientId'));
+    if (!client) return c.json({ error: 'unknown client' }, 404);
+    const phone = phoneSchema.safeParse(c.req.query('phone'));
+    if (!phone.success) return c.json({ error: 'bad phone' }, 400);
+    const updated = await deps.messages.setConversationStatus(client.id, phone.data, 'bot');
+    if (!updated) return c.json({ error: 'no open conversation' }, 404);
+    deps.backoffice.publishStatus(client.id, phone.data, 'bot');
+    return c.body(null, 204);
+  });
+
   return app;
 }
 

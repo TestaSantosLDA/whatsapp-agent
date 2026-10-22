@@ -2,10 +2,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { agentRuns, conversations, leads, messages } from '../db/schema.js';
+import { agentRuns, conversations, leads, messages, outbox } from '../db/schema.js';
+import { EventBus } from '../bus.js';
 import type { Responder } from '../jobs/process-conversation.js';
 import { testApp, testClient } from '../test/helpers.js';
-import type { ClientConfig } from '@wa/shared';
+import type { BackofficeEvent, ClientConfig } from '@wa/shared';
 import { seedCatalogue, shopClient, V } from '../test/catalogue.js';
 import { ClaudeResponder } from './claude-responder.js';
 import { agentTools } from './registry.js';
@@ -78,7 +79,7 @@ afterEach(async () => {
 
 async function setup(
   script: Script[],
-  opts: { tools?: string[]; client?: ClientConfig; registry?: AgentTool[] } = {},
+  opts: { tools?: string[]; client?: ClientConfig; registry?: AgentTool[]; now?: Date } = {},
 ) {
   const claude = fakeClaude(script);
   // The responder needs the app's database, so the app gets a stand-in that calls it later.
@@ -91,7 +92,8 @@ async function setup(
     db: current.db,
     anthropic: claude.anthropic,
     tools: opts.registry ?? [flaky],
-    now: () => new Date('2026-10-19T10:30:00Z'), // a Monday, when the test branch is open,
+    now: () => opts.now ?? new Date('2026-10-19T10:30:00Z'), // a Monday, when the test branch is open,
+    backoffice: current.backoffice,
   });
   const send = async (text: string) => {
     await current!.app.request('/sim/acme/messages', {
@@ -103,7 +105,14 @@ async function setup(
   };
   const outbound = () =>
     current!.db.select().from(messages).where(eq(messages.direction, 'outbound'));
-  return { ...claude, send, outbound, db: current.db };
+  return {
+    ...claude,
+    send,
+    outbound,
+    db: current.db,
+    app: current.app,
+    backoffice: current.backoffice,
+  };
 }
 
 describe('ClaudeResponder', () => {
@@ -123,8 +132,8 @@ describe('ClaudeResponder', () => {
     expect(system[0]!.text).toContain('European Portuguese');
     expect(system[0]!.text).not.toMatch(/2026/);
     expect((body.tools as { name: string }[]).map((x) => x.name)).toEqual([
+      'handoff_to_human',
       'offer_choices',
-      'request_human',
     ]);
     const msgs = body.messages as { role: string; content: unknown }[];
     expect(msgs.map((m) => m.role)).toEqual(['user', 'system']);
@@ -207,9 +216,12 @@ describe('ClaudeResponder', () => {
   it('fails the turn on a refusal, so the customer gets the apology and a person', async () => {
     // One request only: a refusal is not retried.
     const t = await setup([() => ({ content: [], stop_reason: 'refusal' })]);
+    const events: BackofficeEvent[] = [];
+    t.backoffice.bus.subscribe(EventBus.key('acme', '351911111111'), (e) => events.push(e));
     await t.send('Olá');
     const [conv] = await t.db.select().from(conversations);
     expect(conv?.status).toBe('human');
+    expect(events).toContainEqual({ type: 'conversation', status: 'human' });
     const runs = await t.db.select().from(agentRuns);
     expect(runs[0]?.error).toMatch(/refusal/);
   }, 15_000);
@@ -268,6 +280,119 @@ describe('ClaudeResponder across turns', () => {
     await t.send('Queria pavimento vinílico');
     await t.send('Sim, confirmo');
     expect(t.requests).toHaveLength(4);
+  });
+});
+
+describe('ClaudeResponder handoff and order drafts', () => {
+  const weekdays = ['09:00-13:00', '14:00-18:00'];
+  const client = testClient({
+    branches: [
+      {
+        ...testClient().branches[0]!,
+        hours: { mon: weekdays, tue: weekdays, wed: weekdays, thu: weekdays, fri: weekdays },
+        lead_emails: ['lisboa@example.invalid'],
+      },
+    ],
+  });
+
+  it('hands over at 22:00, says when the team replies, then stays silent until handed back', async () => {
+    const t = await setup(
+      [
+        callTool('handoff_to_human', {
+          reason: 'customer_asked',
+          summary: 'Quer falar com alguém sobre um deck.',
+        }),
+        (body) => {
+          const result = JSON.stringify((body.messages as unknown[]).at(-1));
+          expect(result).toContain('tomorrow (Wednesday) at 09:00');
+          return say('Um colega responde-lhe amanhã a partir das 9:00.')(body);
+        },
+        say('Olá de novo! Em que posso ajudar?'),
+      ],
+      { client, now: new Date('2026-10-20T21:00:00Z') }, // Tuesday 22:00 in Lisbon
+    );
+    const events: BackofficeEvent[] = [];
+    t.backoffice.bus.subscribe(EventBus.key('acme', '351911111111'), (e) => events.push(e));
+
+    await t.send('Quero falar com alguém');
+    expect((await t.outbound()).map((m) => m.text)).toEqual([
+      'Um colega responde-lhe amanhã a partir das 9:00.',
+    ]);
+    const [email] = await t.db.select().from(outbox);
+    expect(email).toMatchObject({ kind: 'handoff', to: ['lisboa@example.invalid'] });
+    expect(events).toContainEqual({ type: 'conversation', status: 'human' });
+
+    // In human status the bot does not answer, and Claude is not called.
+    await t.send('Está aí alguém?');
+    expect(await t.outbound()).toHaveLength(1);
+    expect(t.requests).toHaveLength(2);
+
+    // The back-office hands the conversation back to the bot.
+    const back = await t.app.request('/sim/acme/conversation/bot?phone=351911111111', {
+      method: 'POST',
+    });
+    expect(back.status).toBe(204);
+    const [conv] = await t.db.select().from(conversations);
+    expect(conv?.status).toBe('bot');
+    expect(events.at(-1)).toEqual({ type: 'conversation', status: 'bot' });
+    await t.send('Olá');
+    expect(await t.outbound()).toHaveLength(2);
+  });
+
+  it('answers 404 to return-to-bot without an open conversation', async () => {
+    const t = await setup([]);
+    const res = await t.app.request('/sim/acme/conversation/bot?phone=351922222222', {
+      method: 'POST',
+    });
+    expect(res.status).toBe(404);
+    const bad = await t.app.request('/sim/nope/conversation/bot?phone=351922222222', {
+      method: 'POST',
+    });
+    expect(bad.status).toBe(404);
+  });
+
+  it('turns a special-transport cart into an order draft instead of a checkout link', async () => {
+    const shop = shopClient({ tools: agentTools.map((x) => x.name) });
+    const t = await setup(
+      [
+        callTool('create_checkout_link', { items: [{ variant_id: V.beam, quantity: 2 }] }),
+        (body) => {
+          const result = JSON.stringify((body.messages as unknown[]).at(-1));
+          expect(result).toContain('needs_order_draft');
+          return callTool('send_order_draft', {
+            items: [{ variant_id: V.beam, quantity: 2 }],
+            reason: 'special_transport',
+            fulfilment: 'delivery',
+            delivery_address: 'Rua das Flores 1, 8000-000 Faro',
+            summary: '2 vigas GL24h de 12 m, entrega em Faro.',
+          })(body);
+        },
+        (body) => {
+          const result = JSON.stringify((body.messages as unknown[]).at(-1));
+          expect(result).not.toContain('is_error');
+          expect(result).toContain('products_subtotal_eur');
+          return say(
+            'Passei a sua encomenda à equipa, que vai confirmar o preço final e o transporte.',
+          )(body);
+        },
+      ],
+      { client: shop, registry: agentTools },
+    );
+    await seedCatalogue(t.db, shop);
+    await t.send('Confirmo as 2 vigas, entrega em Faro');
+
+    const out = await t.outbound();
+    expect(out).toHaveLength(1);
+    expect(out[0]?.text).not.toContain('/cart/');
+    const [lead] = await t.db.select().from(leads);
+    expect(lead).toMatchObject({ type: 'order' });
+    const [email] = await t.db.select().from(outbox);
+    expect(email?.kind).toBe('order_draft');
+    const [run] = await t.db.select().from(agentRuns);
+    expect((run?.toolCalls as { name: string; ok: boolean }[]).map((c) => [c.name, c.ok])).toEqual([
+      ['create_checkout_link', false],
+      ['send_order_draft', true],
+    ]);
   });
 });
 

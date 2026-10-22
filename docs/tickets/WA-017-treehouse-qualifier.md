@@ -1,8 +1,8 @@
 # WA-017: Modular house pre-sales
 
-| Status | Milestone | Depends on | PR  |
-| ------ | --------- | ---------- | --- |
-| todo   | M3        | WA-014     |     |
+| Status    | Milestone | Depends on | PR  |
+| --------- | --------- | ---------- | --- |
+| in review | M3        | WA-014     |     |
 
 ## Why
 
@@ -16,9 +16,18 @@ Use case 6. Treehouse leads are worth €44k–€150k+ each; a fast, well-quali
 
 ## Acceptance criteria
 
-- [ ] "Quanto custa uma casa T2?" gets the listed prices, what is not included is stated as "to confirm with the team", and the qualifying questions follow.
-- [ ] The lead reaches the modular-house recipient from config.
+- [x] "Quanto custa uma casa T2?" gets the listed prices, what is not included is stated as "to confirm with the team", and the qualifying questions follow.
+- [x] The lead reaches the modular-house recipient from config.
 
 ## Notes
 
 Needs from Jular: what each price includes, lead times, who handles modular leads.
+
+Implementation (M3):
+
+- Generic `skills:` in the client config (`skillSchema` in packages/shared): `when`, `instructions`, `business_line`, `lead_type`, `lead_fields` (id, question, required). Each skill becomes a section of the frozen system prompt, so it stays cached.
+- `save_lead` takes the answers in `details` and refuses (`missing_fields`) while a required skill field is missing. For Treehouse, `use` and `land` are required.
+- The Treehouse lead routes to Azambuja through the existing business-line rule and is emailed to Azambuja's `lead_emails` (a placeholder until Jular says who handles modular leads).
+- The first criterion is covered by the prompt text and its test. It was not checked against the live model, because there is no API key yet.
+
+Still needed from Jular: what each price includes, lead times, who receives modular leads.

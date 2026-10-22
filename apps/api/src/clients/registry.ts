@@ -46,10 +46,16 @@ export function parseClientConfig(yamlText: string, source: string): ClientConfi
   const badRefs = [
     config.routing.default_branch,
     ...config.routing.rules.map((r) => r.branch),
+    ...(config.lead.order_branch ? [config.lead.order_branch] : []),
   ].filter((id) => !branchIds.has(id));
   if (badRefs.length) {
     throw new Error(
       `Invalid client config ${source}:\n  - routing: unknown branch ${badRefs.join(', ')}`,
+    );
+  }
+  if (config.lead.sinks.includes('sheets') && !config.lead.sheets) {
+    throw new Error(
+      `Invalid client config ${source}:\n  - lead.sheets: required when lead.sinks includes sheets`,
     );
   }
   return config;

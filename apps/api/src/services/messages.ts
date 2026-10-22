@@ -152,6 +152,21 @@ export class MessageService {
       .where(eq(conversations.id, conversation.id));
   }
 
+  /** Sets the status of the contact's open conversation. False when there is none. */
+  async setConversationStatus(
+    clientId: string,
+    waId: string,
+    status: 'bot' | 'human',
+  ): Promise<boolean> {
+    const { conversation } = await this.history(clientId, waId);
+    if (!conversation) return false;
+    await this.db
+      .update(conversations)
+      .set({ status })
+      .where(eq(conversations.id, conversation.id));
+    return true;
+  }
+
   async latestConversations(clientId: string, limit = 20): Promise<ConversationRow[]> {
     return this.db
       .select()
