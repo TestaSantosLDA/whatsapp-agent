@@ -1,0 +1,135 @@
+# Deploys the demo to Cloud Run on every merge to main (WA-020). Setup: docs/deploy.md.
+# Until the repository variable GCP_PROJECT is set, the deploy job is skipped and the run stays
+# green.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time; a newer merge waits instead of cancelling a half-finished deploy.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+  REGION: ${{ vars.GCP_REGION || 'europe-west1' }}
+  SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'wa-demo' }}
+  REPOSITORY: ${{ vars.ARTIFACT_REPOSITORY || 'wa' }}
+  TASKS_QUEUE: ${{ vars.CLOUD_TASKS_QUEUE || 'wa-conversations' }}
+
+jobs:
+  not-configured:
+    if: vars.GCP_PROJECT == ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "::notice::Deploy skipped. Set the GCP_PROJECT repository variable to enable it (docs/deploy.md)."
+
+  deploy:
+    if: vars.GCP_PROJECT != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Workload Identity Federation: no JSON key is stored anywhere.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @wa/shared build
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          project_id: ${{ vars.GCP_PROJECT }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          project_id: ${{ vars.GCP_PROJECT }}
+
+      - name: Build and push the image
+        id: image
+        run: |
+          image="$REGION-docker.pkg.dev/$GCP_PROJECT/$REPOSITORY/$SERVICE:$GITHUB_SHA"
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build -t "$image" .
+          docker push "$image"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      # Migrations run here, before the new revision takes traffic, never at container start.
+      # The migrator skips migrations already recorded, so a re-run is a no-op.
+      - uses: google-github-actions/get-secretmanager-secrets@bc9c54b29fdffb8a47776820a7d26e77b379d262 # v3.0.0
+        id: secrets
+        with:
+          secrets: |-
+            DATABASE_URL:${{ vars.GCP_PROJECT }}/DATABASE_URL
+      - name: Apply database migrations
+        run: pnpm --filter @wa/api db:migrate
+        env:
+          DATABASE_URL: ${{ steps.secrets.outputs.DATABASE_URL }}
+
+      - name: Deploy to Cloud Run
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+          RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
+          PUBLIC_BASE_URL_OVERRIDE: ${{ vars.PUBLIC_BASE_URL }}
+        run: |
+          set -euo pipefail
+          # Required secrets fail the deploy when missing; optional ones are mounted only if they
+          # exist in Secret Manager.
+          required="ANTHROPIC_API_KEY DATABASE_URL JOBS_SECRET SIMULATOR_ACCESS_CODE SIMULATOR_WEBHOOK_SECRET"
+          optional="RESEND_API_KEY MAIL_REDIRECT_TO"
+          existing=" $(gcloud secrets list --format='value(name.basename())' | tr '\n' ' ') "
+          mounts=""
+          for name in $required $optional; do
+            if [[ "$existing" == *" $name "* ]]; then
+              mounts="${mounts:+$mounts,}$name=$name:latest"
+            elif [[ " $required " == *" $name "* ]]; then
+              echo "::error::Secret $name is missing in Secret Manager (docs/deploy.md, step 6)"; exit 1
+            fi
+          done
+
+          # The service URL is only known once the service exists: reuse it when it does, and
+          # set it right after the first deploy otherwise.
+          url="${PUBLIC_BASE_URL_OVERRIDE:-$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)' 2>/dev/null || true)}"
+
+          env_vars="NODE_ENV=production,QUEUE=cloudtasks,GCP_PROJECT=$GCP_PROJECT"
+          env_vars="$env_vars,CLOUD_TASKS_LOCATION=$REGION,CLOUD_TASKS_QUEUE=$TASKS_QUEUE"
+          env_vars="$env_vars,MIGRATE_ON_START=false,SYNC_ON_START=false"
+          env_vars="$env_vars,PUBLIC_BASE_URL=${url:-https://pending.invalid}"
+
+          # max-instances 1: simulator replies travel over an in-memory event bus (apps/api/src/
+          # bus.ts), so a second instance would miss them. timeout 3600: SSE streams stay open.
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --service-account "$RUNTIME_SA" \
+            --allow-unauthenticated \
+            --min-instances 0 \
+            --max-instances 1 \
+            --concurrency 80 \
+            --cpu 1 \
+            --memory 512Mi \
+            --cpu-boost \
+            --timeout 3600 \
+            --set-env-vars "$env_vars" \
+            --set-secrets "$mounts" \
+            --quiet
+
+          if [[ -z "$url" ]]; then
+            url="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
+            gcloud run services update "$SERVICE" --region "$REGION" \
+              --update-env-vars "PUBLIC_BASE_URL=$url" --quiet
+          fi
+          echo "Deployed $url" >> "$GITHUB_STEP_SUMMARY"
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$url/health"

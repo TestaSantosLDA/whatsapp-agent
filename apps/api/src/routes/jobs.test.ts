@@ -93,3 +93,14 @@ describe('POST /jobs/catalogue-sync', () => {
     expect((await post(app, '/catalogue-sync?client=nope', JOBS_SECRET)).status).toBe(404);
   });
 });
+
+describe('POST /jobs/keepalive', () => {
+  it('touches the database, behind the jobs secret', async () => {
+    const t = await testApp({ env: { JOBS_SECRET } });
+    closers.push(t.close);
+    expect((await post(t.app, '/jobs/keepalive')).status).toBe(401);
+    const res = await post(t.app, '/jobs/keepalive', JOBS_SECRET);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+});

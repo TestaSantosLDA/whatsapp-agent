@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { ClientConfig } from '@wa/shared';
+import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { CatalogueSource } from '../catalogue/source.js';
 import { sourceForClient } from '../catalogue/source.js';
@@ -7,6 +8,7 @@ import { syncClients } from '../catalogue/sync.js';
 import type { ClientRegistry } from '../clients/registry.js';
 import type { Db } from '../db/index.js';
 import type { Env } from '../env.js';
+import type { RunResult } from '../queue/cloud-tasks.js';
 
 /**
  * Endpoints for schedulers (Cloud Scheduler in prod). Every call needs the `x-jobs-secret`
@@ -18,6 +20,8 @@ export function jobsRoutes(deps: {
   db: Db;
   clients: ClientRegistry;
   sourceFor?: (client: ClientConfig) => CatalogueSource | undefined;
+  /** Set when QUEUE=cloudtasks: runs a job that Cloud Tasks delivers to /jobs/run/:name. */
+  runJob?: (name: string, payload: unknown, retryCount: number) => Promise<RunResult>;
 }) {
   const app = new Hono();
 
@@ -45,6 +49,25 @@ export function jobsRoutes(deps: {
       sourceFor: deps.sourceFor ?? ((client) => sourceForClient(client)),
     });
     return c.json({ results }, results.every((r) => r.ok) ? 200 : 502);
+  });
+
+  // Weekly keep-alive: Supabase pauses a free project after 7 days without database activity.
+  // The hourly catalogue sync already counts; this one also works for clients with no catalogue.
+  app.post('/keepalive', async (c) => {
+    await deps.db.execute(sql`select 1`);
+    return c.json({ ok: true });
+  });
+
+  // Cloud Tasks delivery of a queued job. 500 asks Cloud Tasks to retry; after the last attempt
+  // the queue runs the failure handler and answers 200.
+  app.post('/run/:name', async (c) => {
+    if (!deps.runJob) return c.text('Queue is not cloudtasks', 404);
+    const payload: unknown = await c.req.json().catch(() => undefined);
+    if (payload === undefined) return c.text('Bad request', 400);
+    const retryCount = Number(c.req.header('x-cloudtasks-taskretrycount') ?? 0) || 0;
+    const result = await deps.runJob(c.req.param('name'), payload, retryCount);
+    if (result === 'unknown-job') return c.text('Unknown job', 404);
+    return result === 'retry' ? c.text('Retry', 500) : c.json({ ok: true });
   });
 
   return app;

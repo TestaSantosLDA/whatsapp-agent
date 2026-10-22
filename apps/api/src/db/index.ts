@@ -25,7 +25,9 @@ const migrationsFolder = fileURLToPath(new URL('../../drizzle', import.meta.url)
  */
 export function openDb(opts: { databaseUrl?: string; pgliteDir?: string }): DbHandle {
   if (opts.databaseUrl) {
-    const sqlClient = postgres(opts.databaseUrl, { max: 5 });
+    // prepare: false because Supabase's transaction pooler (port 6543) cannot keep prepared
+    // statements across transactions; it costs nothing measurable on a direct connection.
+    const sqlClient = postgres(opts.databaseUrl, { max: 5, prepare: false });
     const db = drizzlePostgres(sqlClient, { schema });
     return {
       db: db as unknown as Db,

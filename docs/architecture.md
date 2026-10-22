@@ -28,7 +28,7 @@ A WhatsApp agent we can sell to many companies. Jular Madeiras is client #1. The
 | Simulator and future dashboard | Angular                                                                           |
 | Leads                          | `LeadSink` interface: mock (simulator panel), Google Sheets                       |
 | Email                          | `Mailer` interface: mock outbox, Resend                                           |
-| Hosting                        | Google Cloud Run (free tier), one Docker image per app                            |
+| Hosting                        | Google Cloud Run (free tier), one image: the API also serves the simulator        |
 | Tests                          | Vitest                                                                            |
 
 Only the Claude API costs money. Everything else stays on free tiers at MVP volume.
