@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+dist
+coverage
+.angular
+apps/api/drizzle
+.claude/worktrees

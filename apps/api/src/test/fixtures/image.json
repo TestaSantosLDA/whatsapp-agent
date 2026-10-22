@@ -1,0 +1,35 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15550783881",
+              "phone_number_id": "test-phone-id"
+            },
+            "contacts": [{ "profile": { "name": "Ana Costa" }, "wa_id": "351912345678" }],
+            "messages": [
+              {
+                "from": "351912345678",
+                "id": "wamid.image-1",
+                "timestamp": "1761087120",
+                "type": "image",
+                "image": {
+                  "caption": "Gosto deste chão",
+                  "mime_type": "image/jpeg",
+                  "sha256": "x8Ul4UDn1J2nBZx1ARtLwvMzbHTZgd0EJmXo8QhZ4fM=",
+                  "id": "1234567890"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
