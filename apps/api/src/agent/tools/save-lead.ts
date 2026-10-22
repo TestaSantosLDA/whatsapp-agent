@@ -62,6 +62,16 @@ const inputSchema = z.object({
 
 type Input = z.infer<typeof inputSchema>;
 
+const textFields = [
+  'name',
+  'email',
+  'location',
+  'request_type',
+  'business_line',
+  'products',
+  'timeline',
+] as const satisfies readonly (keyof Input & LeadField)[];
+
 /** What the agent should ask for, per required field. */
 const fieldPrompts: Record<LeadField, string> = {
   name: "name (the customer's name)",
@@ -86,6 +96,11 @@ Returns who will contact the customer and the response time from the company's s
   inputSchema,
   async run(input, ctx) {
     const client = ctx.client;
+    // A core text field the model put in details still counts when its own parameter is empty.
+    for (const key of textFields) {
+      const value = input.details?.[key];
+      if (input[key] === undefined && value?.trim()) input = { ...input, [key]: value };
+    }
     const name = input.name ?? ctx.contact.name ?? undefined;
     const values: Record<LeadField, unknown> = {
       name,
@@ -110,13 +125,14 @@ Returns who will contact the customer and the response time from the company's s
     const details = Object.fromEntries(
       Object.entries(input.details ?? {}).filter(([id]) => !coreLeadKeys.includes(id)),
     );
-    // A skill adds its own required questions. It is found by business line, or by its answers
-    // when the model left the business line out; then its business line routes the lead.
+    // A skill adds its own required questions. It is found by business line, or by an answer to
+    // one of its required questions when the model left the business line out (generic optional
+    // ids like budget are not enough); then its business line routes the lead.
     const skill =
       client.skills.find((s) => input.business_line && s.business_line === input.business_line) ??
       (input.business_line
         ? undefined
-        : client.skills.find((s) => s.lead_fields.some((f) => f.id in details)));
+        : client.skills.find((s) => s.lead_fields.some((f) => f.required && f.id in details)));
     const businessLine = input.business_line ?? skill?.business_line;
     const missingDetails = (skill?.lead_fields ?? []).filter(
       (f) => f.required && !details[f.id]?.trim(),

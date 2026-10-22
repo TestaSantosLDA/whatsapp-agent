@@ -1,3 +1,4 @@
+import type { ClientConfig } from '@wa/shared';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../db/index.js';
 import { outbox } from '../db/schema.js';
@@ -193,12 +194,23 @@ export class RedirectMailer implements Mailer {
 
 /** Resend when RESEND_API_KEY is set, else the outbox only (demo mode). */
 export function mailerFromEnv(deps: {
+  /** Checked for senders that Resend will not deliver from. */
+  clients?: ClientConfig[];
   db: Db;
   backoffice?: BackofficeService;
   resendApiKey?: string;
   /** MAIL_REDIRECT_TO: every email goes to these addresses instead. */
   redirectTo?: string[];
 }): Mailer {
+  if (deps.resendApiKey && !deps.redirectTo?.length) {
+    for (const client of deps.clients ?? []) {
+      if (client.mail.from.includes('@resend.dev')) {
+        console.warn(
+          `[mail] ${client.id}: mail.from uses Resend's test sender, which only delivers to the Resend account's own address. Set MAIL_REDIRECT_TO to that address, or use a verified domain.`,
+        );
+      }
+    }
+  }
   const mailer = deps.resendApiKey
     ? new ResendMailer({ db: deps.db, backoffice: deps.backoffice, apiKey: deps.resendApiKey })
     : new OutboxMailer({ db: deps.db, backoffice: deps.backoffice });

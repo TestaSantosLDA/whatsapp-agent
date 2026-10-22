@@ -149,6 +149,7 @@ function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Respond
     backoffice,
     leads: new LeadSinks({ db: deps.db, backoffice, sinks }),
     mailer: mailerFromEnv({
+      clients: deps.clients.all(),
       db: deps.db,
       backoffice,
       resendApiKey: deps.env.RESEND_API_KEY,

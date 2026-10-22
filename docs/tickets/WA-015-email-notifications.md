@@ -35,3 +35,5 @@ Branch staff must hear about a lead or handoff within minutes, in the tool they 
 - `mail.from` is a placeholder; Resend needs a sender on a verified domain.
 - Retries live in memory: an email still retrying when the process stops keeps its row with neither `sentAt` nor `error`. A periodic job that resends such rows can come with WA-020 (Cloud Run).
 - The outbox stores the plain-text body only.
+
+Follow-up (#6): `MAIL_REDIRECT_TO` (env, comma-separated) sends every email to those addresses instead of the branch teams, with `[demo → <intended recipients>]` in the subject. It is for live demos before the client's recipients are known. Jular's `mail.from` is Resend's test sender (`onboarding@resend.dev`), which only delivers to the Resend account's own address. With `RESEND_API_KEY` set and no redirect, the API logs a warning at startup.
