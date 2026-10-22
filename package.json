@@ -16,7 +16,8 @@
     "typecheck": "pnpm -r run typecheck",
     "db:migrate": "pnpm --filter @wa/api run db:migrate",
     "db:generate": "pnpm --filter @wa/api run db:generate",
-    "db:seed": "pnpm --filter @wa/api run db:seed"
+    "db:seed": "pnpm --filter @wa/api run db:seed",
+    "sync:catalogue": "pnpm --filter @wa/api run sync:catalogue"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

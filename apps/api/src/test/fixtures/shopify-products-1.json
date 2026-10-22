@@ -1,0 +1,107 @@
+{
+  "products": [
+    {
+      "id": 8101000000001,
+      "title": "Pavimento Vinílico SPC Carvalho Natural",
+      "handle": "pavimento-vinilico-spc-carvalho-natural",
+      "body_html": "<p>Pavimento vin&iacute;lico <strong>SPC</strong> 100% resistente &agrave; &aacute;gua, ideal para cozinhas e casas de banho.</p>\n<ul><li>Espessura: 5 mm&nbsp;</li><li>Caixa de 2,2 m&sup2;</li></ul>",
+      "published_at": "2026-03-01T10:00:00+00:00",
+      "created_at": "2026-03-01T10:00:00+00:00",
+      "updated_at": "2026-10-01T10:00:00+00:00",
+      "vendor": "Jular",
+      "product_type": "Pavimento Vinílico",
+      "tags": ["SPC", "vinílico", "resistente à água"],
+      "variants": [
+        {
+          "id": 46100000000011,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "sku": "VIN-SPC-CN",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "24.90",
+          "grams": 18000,
+          "compare_at_price": "29.90",
+          "position": 1,
+          "product_id": 8101000000001
+        }
+      ],
+      "images": [
+        {
+          "id": 3001,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/vinilico-carvalho.jpg",
+          "variant_ids": [],
+          "width": 1200,
+          "height": 1200
+        }
+      ],
+      "options": [{ "name": "Title", "position": 1, "values": ["Default Title"] }]
+    },
+    {
+      "id": 8101000000002,
+      "title": "Soalho Madeira Maciça Carvalho",
+      "handle": "soalho-madeira-macica-carvalho",
+      "body_html": "<p>Soalho em madeira maci&ccedil;a de carvalho europeu, acabamento envernizado. Para salas e quartos da sua casa.</p><p>N&atilde;o recomendado para zonas h&uacute;midas.</p>",
+      "vendor": "Jular",
+      "product_type": "Pavimento de Madeira Maciça",
+      "tags": ["madeira maciça", "carvalho", "interior"],
+      "variants": [
+        {
+          "id": 46100000000021,
+          "title": "14 mm",
+          "sku": "SOA-CAR-14",
+          "featured_image": {
+            "id": 3002,
+            "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/soalho-14.jpg"
+          },
+          "available": true,
+          "price": "54.00",
+          "compare_at_price": null
+        },
+        {
+          "id": 46100000000022,
+          "title": "20 mm",
+          "sku": "SOA-CAR-20",
+          "featured_image": null,
+          "available": false,
+          "price": "68.5",
+          "compare_at_price": null
+        }
+      ],
+      "images": [
+        {
+          "id": 3002,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/soalho-14.jpg",
+          "variant_ids": [46100000000021]
+        },
+        {
+          "id": 3003,
+          "src": "//cdn.shopify.com/s/files/1/0000/0001/products/soalho-20.jpg",
+          "variant_ids": [46100000000022]
+        }
+      ]
+    },
+    {
+      "id": 8101000000003,
+      "title": "Deck de Ipê 21 mm",
+      "handle": "deck-ipe-21mm",
+      "body_html": "<p>Deck em madeira de Ip&ecirc;, muito dur&aacute;vel no exterior: terra&ccedil;os, piscinas e jardins.</p>",
+      "vendor": "Jular",
+      "product_type": "Deck",
+      "tags": "deck, exterior, ipê",
+      "variants": [
+        {
+          "id": 46100000000031,
+          "title": "Default Title",
+          "sku": "DCK-IPE-21",
+          "available": true,
+          "price": "42.50",
+          "compare_at_price": ""
+        }
+      ],
+      "images": []
+    }
+  ]
+}

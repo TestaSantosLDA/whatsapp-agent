@@ -1,0 +1,58 @@
+{
+  "products": [
+    {
+      "id": 8101000000004,
+      "title": "Osmo Óleo para Decks 016 Bangkirai",
+      "handle": "osmo-oleo-decks-016-bangkirai",
+      "body_html": "<p>&Oacute;leo natural Osmo para decks e mobili&aacute;rio de exterior. Real&ccedil;a a cor da madeira &amp; protege da humidade.</p>",
+      "vendor": "Osmo",
+      "product_type": "Óleos e Vernizes",
+      "tags": ["óleo", "exterior", "manutenção"],
+      "variants": [
+        {
+          "id": 46100000000041,
+          "title": "0,75 L",
+          "sku": "OSM-016-075",
+          "available": true,
+          "price": "32.95",
+          "compare_at_price": null
+        },
+        {
+          "id": 46100000000042,
+          "title": "2,5 L",
+          "sku": "OSM-016-25",
+          "available": true,
+          "price": "79.95",
+          "compare_at_price": null
+        }
+      ],
+      "images": [
+        {
+          "id": 3004,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/products/osmo-016.jpg",
+          "variant_ids": []
+        }
+      ]
+    },
+    {
+      "id": 8101000000005,
+      "title": "Viga Lamelada Colada GL24h 12 m",
+      "handle": "viga-lamelada-gl24h-12m",
+      "body_html": "<p>Viga em madeira lamelada colada GL24h, 120&times;400 mm, comprimento 12 m.</p>",
+      "vendor": "Jular",
+      "product_type": "Estruturas",
+      "tags": ["Transporte Especial", "lamelado"],
+      "variants": [
+        {
+          "id": 46100000000051,
+          "title": "Default Title",
+          "sku": "GL24-12",
+          "available": true,
+          "price": "890.00",
+          "compare_at_price": null
+        }
+      ],
+      "images": []
+    }
+  ]
+}

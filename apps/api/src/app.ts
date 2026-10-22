@@ -10,6 +10,9 @@ import { WhatsAppCloudChannel } from './channels/whatsapp-cloud.js';
 import type { ClientRegistry } from './clients/registry.js';
 import type { Db } from './db/index.js';
 import type { Env } from './env.js';
+import Anthropic from '@anthropic-ai/sdk';
+import { agentTools } from './agent/registry.js';
+import { ClaudeResponder } from './agent/claude-responder.js';
 import { EchoResponder } from './jobs/echo-responder.js';
 import {
   onProcessConversationFailure,
@@ -19,6 +22,7 @@ import {
   type Responder,
 } from './jobs/process-conversation.js';
 import { InProcessQueue, type Queue } from './queue/queue.js';
+import { jobsRoutes } from './routes/jobs.js';
 import { simulatorRoutes } from './routes/simulator.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { MessageService } from './services/messages.js';
@@ -27,7 +31,7 @@ export interface AppDeps {
   env: Env;
   db: Db;
   clients: ClientRegistry;
-  /** Defaults to the echo responder until the Claude agent lands (WA-009). */
+  /** Defaults to the Claude agent when ANTHROPIC_API_KEY is set, else the echo test bot. */
   responder?: Responder;
   queue?: Queue;
   /** See processConversation. Tests set 0. */
@@ -60,7 +64,7 @@ export function createApp(deps: AppDeps) {
         await onFailure(job.payload as ProcessConversationPayload, error);
       else console.error(`[queue] job ${job.name} failed`, error);
     });
-  const responder = deps.responder ?? new EchoResponder(deps.env.PUBLIC_BASE_URL);
+  const responder = deps.responder ?? defaultResponder(deps);
   queue.register(
     PROCESS_CONVERSATION,
     processConversation({ ...jobDeps, responder, debounceMs: deps.debounceMs }),
@@ -86,6 +90,8 @@ export function createApp(deps: AppDeps) {
       return c.text('Not found', 404);
     }
   });
+
+  app.route('/jobs', jobsRoutes({ env: deps.env, db: deps.db, clients: deps.clients }));
 
   const webhook = webhookRoutes({ env: deps.env, clients: deps.clients, messages, queue });
   app.route('/webhook', webhook);
@@ -116,4 +122,18 @@ export function createApp(deps: AppDeps) {
 /** The simulator stream carries the access code and the customer phone in its query string. */
 export function redactQuery(line: string): string {
   return line.replace(/([?&](?:code|phone)=)[^&\s]*/g, '$1***');
+}
+
+function defaultResponder(deps: AppDeps): Responder {
+  if (!deps.env.ANTHROPIC_API_KEY) {
+    console.warn(
+      '[agent] ANTHROPIC_API_KEY is not set: the echo test bot answers instead of Claude.',
+    );
+    return new EchoResponder(deps.env.PUBLIC_BASE_URL);
+  }
+  return new ClaudeResponder({
+    db: deps.db,
+    anthropic: new Anthropic({ apiKey: deps.env.ANTHROPIC_API_KEY }),
+    tools: agentTools,
+  });
 }

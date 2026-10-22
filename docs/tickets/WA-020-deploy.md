@@ -15,6 +15,7 @@ A public demo URL we can open in any sales meeting.
 - Google Cloud project: Cloud Run service (min instances 0), Cloud Tasks queue, Cloud Scheduler job for the hourly catalogue sync, secrets in Secret Manager (`ANTHROPIC_API_KEY`, DB URL, simulator access code).
 - `CloudTasksQueue` implementing the `Queue` interface (moved here from WA-005).
 - GitHub Actions: deploy on merge to `main`.
+- Optional (asked 2026-10-22): also publish the simulator on GitHub Pages, built with the Cloud Run API URL (needs CORS on `/sim` and `/static`). Only once the API is hosted: Pages serves static files, the simulator alone does nothing.
 - Spending limit set on the Claude API key; Google Cloud budget alert at €1.
 
 ## Acceptance criteria
