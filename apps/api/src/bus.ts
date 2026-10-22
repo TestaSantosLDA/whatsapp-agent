@@ -1,19 +1,17 @@
 import type { SimEvent } from '@wa/shared';
 
-type Listener = (event: SimEvent) => void;
-
 /**
- * In-memory pub/sub for simulator events, keyed by client and customer phone.
+ * In-memory pub/sub for simulator and back-office events, keyed by client and customer phone.
  * Fine for a single instance; several instances would need Postgres LISTEN/NOTIFY or Redis.
  */
-export class EventBus {
-  private readonly listeners = new Map<string, Set<Listener>>();
+export class EventBus<E = SimEvent> {
+  private readonly listeners = new Map<string, Set<(event: E) => void>>();
 
   static key(clientId: string, phone: string): string {
     return `${clientId}:${phone}`;
   }
 
-  subscribe(key: string, listener: Listener): () => void {
+  subscribe(key: string, listener: (event: E) => void): () => void {
     let set = this.listeners.get(key);
     if (!set) {
       set = new Set();
@@ -26,7 +24,7 @@ export class EventBus {
     };
   }
 
-  publish(key: string, event: SimEvent): void {
+  publish(key: string, event: E): void {
     for (const listener of this.listeners.get(key) ?? []) listener(event);
   }
 }

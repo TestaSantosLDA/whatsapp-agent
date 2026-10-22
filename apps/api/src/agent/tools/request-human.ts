@@ -31,18 +31,23 @@ export const requestHuman = defineTool({
     const branchId = input.branch_id ?? ctx.client.routing.default_branch;
     const branch = ctx.client.branches.find((b) => b.id === branchId);
     if (!branch) throw new ToolError('unknown_branch', `No branch with id "${branchId}".`);
-    await ctx.db.insert(leads).values({
-      clientId: ctx.client.id,
-      conversationId: ctx.conversation.id,
-      contactId: ctx.contact.id,
-      type: 'handoff',
-      branchId,
-      fields: { reason: input.reason, summary: input.summary },
-    });
+    const [lead] = await ctx.db
+      .insert(leads)
+      .values({
+        clientId: ctx.client.id,
+        conversationId: ctx.conversation.id,
+        contactId: ctx.contact.id,
+        type: 'handoff',
+        branchId,
+        fields: { reason: input.reason, summary: input.summary },
+      })
+      .returning();
     await ctx.db
       .update(conversations)
       .set({ status: 'human' })
       .where(eq(conversations.id, ctx.conversation.id));
+    if (lead) ctx.backoffice?.publishLead(ctx.client, ctx.contact.waId, lead);
+    ctx.backoffice?.publishStatus(ctx.client.id, ctx.contact.waId, 'human');
     return { ok: true, branch: branch.name, response_time: ctx.client.lead.response_time };
   },
 });

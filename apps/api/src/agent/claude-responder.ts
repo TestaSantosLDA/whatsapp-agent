@@ -9,6 +9,7 @@ import type { ClientConfig } from '@wa/shared';
 import { and, asc, eq, gte, isNull } from 'drizzle-orm';
 import type { OutboundMessage } from '../channels/channel.js';
 import type { Db } from '../db/index.js';
+import type { BackofficeService } from '../services/backoffice.js';
 import { agentRuns, contacts, conversations, messages } from '../db/schema.js';
 import type { Responder, TurnInput } from '../jobs/process-conversation.js';
 import { PermanentJobError } from '../queue/queue.js';
@@ -60,6 +61,7 @@ export class ClaudeResponder implements Responder {
       tools: AgentTool[];
       now?: () => Date;
       maxIterations?: number;
+      backoffice?: BackofficeService;
     },
   ) {}
 
@@ -77,23 +79,35 @@ export class ClaudeResponder implements Responder {
       cacheWriteTokens: 0,
     };
     const calls: ToolCallRecord[] = [];
-    const record = (error?: string) =>
-      this.deps.db.insert(agentRuns).values({
-        clientId: client.id,
-        conversationId: conversation.id,
-        model: client.model.id,
-        inputTokens: usage.inputTokens + usage.cacheWriteTokens,
-        outputTokens: usage.outputTokens,
-        cacheReadTokens: usage.cacheReadTokens,
-        costUsd: estimateCost(client.model.id, usage)?.toFixed(6),
-        toolCalls: calls,
-        latencyMs: Date.now() - started,
-        error,
-      });
+    const record = async (error?: string) => {
+      const [row] = await this.deps.db
+        .insert(agentRuns)
+        .values({
+          clientId: client.id,
+          conversationId: conversation.id,
+          model: client.model.id,
+          inputTokens: usage.inputTokens + usage.cacheWriteTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          costUsd: estimateCost(client.model.id, usage)?.toFixed(6),
+          toolCalls: calls,
+          latencyMs: Date.now() - started,
+          error,
+        })
+        .returning();
+      if (row) this.deps.backoffice?.publishTurn(client.id, contact.waId, row);
+    };
 
     try {
       contact = await this.updateLanguage(contact, newMessages);
-      const ctx: ToolContext = { db: this.deps.db, client, conversation, contact, outbox: [] };
+      const ctx: ToolContext = {
+        db: this.deps.db,
+        client,
+        conversation,
+        contact,
+        outbox: [],
+        backoffice: this.deps.backoffice,
+      };
       const runner = this.deps.anthropic.beta.messages.toolRunner({
         model: client.model.id,
         max_tokens: 16000,

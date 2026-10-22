@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { BackofficeEvent } from '@wa/shared';
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { EventBus } from './bus.js';
@@ -25,6 +26,7 @@ import { InProcessQueue, type Queue } from './queue/queue.js';
 import { jobsRoutes } from './routes/jobs.js';
 import { simulatorRoutes } from './routes/simulator.js';
 import { webhookRoutes } from './routes/webhook.js';
+import { BackofficeService } from './services/backoffice.js';
 import { MessageService } from './services/messages.js';
 
 export interface AppDeps {
@@ -55,6 +57,7 @@ export function createApp(deps: AppDeps) {
     ['whatsapp_cloud', new WhatsAppCloudChannel()],
   ]);
   const messages = new MessageService(deps.db, bus, channels);
+  const backoffice = new BackofficeService(deps.db, new EventBus<BackofficeEvent>());
   const jobDeps = { db: deps.db, clients: deps.clients, messages };
   const onFailure = onProcessConversationFailure(jobDeps);
   const queue =
@@ -64,7 +67,7 @@ export function createApp(deps: AppDeps) {
         await onFailure(job.payload as ProcessConversationPayload, error);
       else console.error(`[queue] job ${job.name} failed`, error);
     });
-  const responder = deps.responder ?? defaultResponder(deps);
+  const responder = deps.responder ?? defaultResponder(deps, backoffice);
   queue.register(
     PROCESS_CONVERSATION,
     processConversation({ ...jobDeps, responder, debounceMs: deps.debounceMs }),
@@ -116,7 +119,7 @@ export function createApp(deps: AppDeps) {
     }),
   );
 
-  return { app, queue, bus, messages };
+  return { app, queue, bus, messages, backoffice };
 }
 
 /** The simulator stream carries the access code and the customer phone in its query string. */
@@ -124,7 +127,7 @@ export function redactQuery(line: string): string {
   return line.replace(/([?&](?:code|phone)=)[^&\s]*/g, '$1***');
 }
 
-function defaultResponder(deps: AppDeps): Responder {
+function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Responder {
   if (!deps.env.ANTHROPIC_API_KEY) {
     console.warn(
       '[agent] ANTHROPIC_API_KEY is not set: the echo test bot answers instead of Claude.',
@@ -135,5 +138,6 @@ function defaultResponder(deps: AppDeps): Responder {
     db: deps.db,
     anthropic: new Anthropic({ apiKey: deps.env.ANTHROPIC_API_KEY }),
     tools: agentTools,
+    backoffice,
   });
 }

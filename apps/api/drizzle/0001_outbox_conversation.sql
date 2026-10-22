@@ -1,0 +1,2 @@
+ALTER TABLE "outbox" ADD COLUMN "conversation_id" uuid;--> statement-breakpoint
+ALTER TABLE "outbox" ADD CONSTRAINT "outbox_conversation_id_conversations_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "public"."conversations"("id") ON DELETE no action ON UPDATE no action;
