@@ -5,6 +5,7 @@ import { splitText, toOutbound } from './format.js';
 import { toClaudeMessages } from './history.js';
 import { isOpen, localTime } from './hours.js';
 import { detectLanguage } from './language.js';
+import { testClient } from '../test/helpers.js';
 import { buildSystemPrompt } from './prompt.js';
 
 describe('opening hours', () => {
@@ -131,5 +132,24 @@ describe('system prompt', () => {
     expect(prompt).toContain('Mon 08:00-13:00, 14:00-18:00');
     expect(prompt).toContain('Customers in Algarve, Faro → albufeira');
     expect(prompt).toContain('MB Way');
+  });
+
+  it('adds the Treehouse playbook with its prices and lead fields', () => {
+    const jular = loadClients(new URL('../../../../clients', import.meta.url).pathname).get(
+      'jular',
+    )!;
+    const prompt = buildSystemPrompt(jular);
+    expect(prompt).toContain('# Skills');
+    expect(prompt).toContain('Treehouse SW T2A* €90.412,38');
+    expect(prompt).toContain('to be confirmed with the Treehouse team');
+    expect(prompt).toContain('request_type "quote" and business_line "casas-modulares"');
+    expect(prompt).toContain('- land (required):');
+    // The playbook's business line routes to the modular-house branch.
+    const rule = jular.routing.rules.find((r) => r.business_line === 'casas-modulares');
+    expect(rule?.branch).toBe('azambuja');
+  });
+
+  it('has no skills section when the client has none', () => {
+    expect(buildSystemPrompt(testClient())).not.toContain('# Skills');
   });
 });

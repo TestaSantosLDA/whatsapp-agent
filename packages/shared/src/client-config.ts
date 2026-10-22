@@ -23,6 +23,30 @@ export const branchSchema = z.object({
 });
 export type Branch = z.infer<typeof branchSchema>;
 
+/** A question the agent asks before saving the lead; the answer is stored under `id`. */
+export const skillLeadFieldSchema = z.object({
+  id: z.string(),
+  ask: z.string(),
+  required: z.boolean().default(false),
+});
+
+/**
+ * A client-specific playbook (WA-017): when it applies, what the agent knows and how it guides
+ * the conversation, and which lead fields it collects before calling save_lead.
+ */
+export const skillSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** The business line its leads are routed by. */
+  business_line: z.string().optional(),
+  /** When the agent should use it, in plain words. */
+  when: z.string(),
+  instructions: z.string(),
+  lead_type: z.string().default('quote'),
+  lead_fields: z.array(skillLeadFieldSchema).default([]),
+});
+export type Skill = z.infer<typeof skillSchema>;
+
 export const channelConfigSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('simulator'),
@@ -88,5 +112,7 @@ export const clientConfigSchema = z.object({
   privacy_policy_url: z.url().optional(),
   policies: z.record(z.string(), z.string()).default({}),
   product_data: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+  /** Client-specific conversation playbooks added to the system prompt (WA-017). */
+  skills: z.array(skillSchema).default([]),
 });
 export type ClientConfig = z.infer<typeof clientConfigSchema>;

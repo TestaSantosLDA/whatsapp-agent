@@ -52,6 +52,23 @@ export function buildSystemPrompt(client: ClientConfig): string {
     .map((l) => `- **${l.name}** (id: ${l.id}): ${l.description}`)
     .join('\n');
 
+  const skills = client.skills
+    .map((skill) => {
+      const fields = skill.lead_fields
+        .map((f) => `- ${f.id}${f.required ? ' (required)' : ''}: ${f.ask}`)
+        .join('\n');
+      return [
+        `## ${skill.name} (id: ${skill.id})`,
+        `Use when: ${skill.when.trim()}`,
+        '',
+        skill.instructions.trim(),
+        '',
+        `Lead: call save_lead with request_type "${skill.lead_type}"${skill.business_line ? ` and business_line "${skill.business_line}"` : ''}, putting these answers in its fields under the ids below. Ask them one or two at a time, never as a form; skip what the customer already said.`,
+        fields,
+      ].join('\n');
+    })
+    .join('\n\n');
+
   const policies = Object.entries(client.policies)
     .map(([key, text]) => `### ${key}\n${text.trim()}`)
     .join('\n\n');
@@ -104,7 +121,7 @@ ${routing}
 Request types: ${client.lead.request_types.join(', ')}. A colleague replies within ${client.lead.response_time}.
 
 # Policies
-${policies || '(none configured)'}`;
+${policies || '(none configured)'}${skills ? `\n\n# Skills\nPlaybooks for specific requests. Follow the matching one closely.\n\n${skills}` : ''}`;
 }
 
 /**
