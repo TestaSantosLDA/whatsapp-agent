@@ -49,7 +49,14 @@ export const clientConfigSchema = z.object({
   brand_voice: z.string(),
   channel: channelConfigSchema,
   catalogue: z
-    .discriminatedUnion('type', [z.object({ type: z.literal('shopify'), store_url: z.url() })])
+    .discriminatedUnion('type', [
+      z.object({
+        type: z.literal('shopify'),
+        store_url: z.url(),
+        /** Added to checkout links as `?ref=` so the store can attribute orders to the agent. */
+        checkout_ref: z.string().optional(),
+      }),
+    ])
     .optional(),
   business_lines: z.array(z.object({ id: z.string(), name: z.string(), description: z.string() })),
   branches: z.array(branchSchema).min(1),
