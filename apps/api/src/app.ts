@@ -105,6 +105,7 @@ export function createApp(deps: AppDeps) {
       clients: deps.clients,
       messages,
       bus,
+      backoffice,
       postWebhook: (body) =>
         Promise.resolve(
           webhook.request('/simulator', {

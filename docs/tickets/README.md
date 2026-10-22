@@ -59,13 +59,13 @@ One markdown file per ticket. A ticket is written and agreed before it is implem
 
 ### M3: Business outputs (demo produces leads)
 
-| Ticket                                      | Title                              | Depends on     | Status |
-| ------------------------------------------- | ---------------------------------- | -------------- | ------ |
-| [WA-014](WA-014-lead-capture.md)            | Lead capture and LeadSink          | WA-009         | todo   |
-| [WA-015](WA-015-email-notifications.md)     | Email notifications and Mailer     | WA-014         | todo   |
-| [WA-016](WA-016-handoff-and-order-draft.md) | Handoff to human and order drafts  | WA-014, WA-015 | todo   |
-| [WA-017](WA-017-treehouse-qualifier.md)     | Modular house pre-sales            | WA-014         | todo   |
-| [WA-018](WA-018-backoffice-panel.md)        | Back-office panel in the simulator | WA-007, WA-014 | todo   |
+| Ticket                                      | Title                              | Depends on     | Status    |
+| ------------------------------------------- | ---------------------------------- | -------------- | --------- |
+| [WA-014](WA-014-lead-capture.md)            | Lead capture and LeadSink          | WA-009         | todo      |
+| [WA-015](WA-015-email-notifications.md)     | Email notifications and Mailer     | WA-014         | todo      |
+| [WA-016](WA-016-handoff-and-order-draft.md) | Handoff to human and order drafts  | WA-014, WA-015 | todo      |
+| [WA-017](WA-017-treehouse-qualifier.md)     | Modular house pre-sales            | WA-014         | todo      |
+| [WA-018](WA-018-backoffice-panel.md)        | Back-office panel in the simulator | WA-007, WA-014 | in review |
 
 ### M4: Quality and deploy (demo online)
 
