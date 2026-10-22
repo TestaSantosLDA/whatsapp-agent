@@ -25,9 +25,11 @@ import {
 import { parseServiceAccount, GoogleSheetsLeadSink } from './leads/sheets.js';
 import { LeadSinks, type LeadSink } from './leads/sink.js';
 import { mailerFromEnv } from './mail/mailer.js';
-import { InProcessQueue, type Queue } from './queue/queue.js';
+import { CloudTasksQueue } from './queue/cloud-tasks.js';
+import { InProcessQueue, type Job, type Queue } from './queue/queue.js';
 import { jobsRoutes } from './routes/jobs.js';
 import { simulatorRoutes } from './routes/simulator.js';
+import { serveSimulator } from './routes/spa.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { BackofficeService } from './services/backoffice.js';
 import { MessageService } from './services/messages.js';
@@ -42,6 +44,8 @@ export interface AppDeps {
   /** See processConversation. Tests set 0. */
   debounceMs?: number;
   logRequests?: boolean;
+  /** Serve the built simulator from SIMULATOR_DIST_DIR at `/`. Default true; tests turn it off. */
+  serveSimulator?: boolean;
 }
 
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
@@ -63,13 +67,12 @@ export function createApp(deps: AppDeps) {
   const backoffice = new BackofficeService(deps.db, new EventBus<BackofficeEvent>());
   const jobDeps = { db: deps.db, clients: deps.clients, messages, backoffice };
   const onFailure = onProcessConversationFailure(jobDeps);
-  const queue =
-    deps.queue ??
-    new InProcessQueue(async (job, error) => {
-      if (job.name === PROCESS_CONVERSATION)
-        await onFailure(job.payload as ProcessConversationPayload, error);
-      else console.error(`[queue] job ${job.name} failed`, error);
-    });
+  const onJobFailure = async (job: Job, error: unknown) => {
+    if (job.name === PROCESS_CONVERSATION)
+      await onFailure(job.payload as ProcessConversationPayload, error);
+    else console.error(`[queue] job ${job.name} failed`, error);
+  };
+  const queue = deps.queue ?? queueFromEnv(deps.env, onJobFailure);
   const responder = deps.responder ?? defaultResponder(deps, backoffice);
   queue.register(
     PROCESS_CONVERSATION,
@@ -83,7 +86,10 @@ export function createApp(deps: AppDeps) {
       logger((line) => console.log(redactQuery(line))),
     );
 
+  // /healthz for local checks and probes; on Cloud Run use /health, because Google's front end
+  // reserves some paths ending in "z" and never forwards them to the container.
   app.get('/health', (c) => c.json({ ok: true }));
+  app.get('/healthz', (c) => c.json({ ok: true }));
 
   app.get('/static/:file', async (c) => {
     const file = basename(c.req.param('file'));
@@ -97,7 +103,18 @@ export function createApp(deps: AppDeps) {
     }
   });
 
-  app.route('/jobs', jobsRoutes({ env: deps.env, db: deps.db, clients: deps.clients }));
+  app.route(
+    '/jobs',
+    jobsRoutes({
+      env: deps.env,
+      db: deps.db,
+      clients: deps.clients,
+      runJob:
+        queue instanceof CloudTasksQueue
+          ? (name, payload, retryCount) => queue.run(name, payload, retryCount)
+          : undefined,
+    }),
+  );
 
   const webhook = webhookRoutes({ env: deps.env, clients: deps.clients, messages, queue });
   app.route('/webhook', webhook);
@@ -123,7 +140,26 @@ export function createApp(deps: AppDeps) {
     }),
   );
 
+  // Last, so every API route wins over the simulator's index.html fallback.
+  if (deps.serveSimulator ?? true) serveSimulator(app, deps.env.SIMULATOR_DIST_DIR);
+
   return { app, queue, bus, messages, backoffice };
+}
+
+function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise<void>): Queue {
+  if (env.QUEUE === 'cloudtasks') {
+    // loadEnv has checked these are set.
+    return new CloudTasksQueue({
+      project: env.GCP_PROJECT!,
+      location: env.CLOUD_TASKS_LOCATION!,
+      queue: env.CLOUD_TASKS_QUEUE!,
+      targetBaseUrl: env.PUBLIC_BASE_URL,
+      jobsSecret: env.JOBS_SECRET!,
+      delayMs: env.CLOUD_TASKS_DELAY_MS,
+      onFailure,
+    });
+  }
+  return new InProcessQueue(onFailure);
 }
 
 /** The simulator stream carries the access code and the customer phone in its query string. */

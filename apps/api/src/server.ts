@@ -16,7 +16,9 @@ try {
 
 const clients = loadClients(env.CLIENTS_DIR);
 const handle = openDb({ databaseUrl: env.DATABASE_URL, pgliteDir: env.PGLITE_DIR });
-await handle.migrate();
+// On Cloud Run, CI applies migrations before the deploy (MIGRATE_ON_START=false), so a cold
+// start does not pay for it and two instances never race on the schema.
+if (env.MIGRATE_ON_START) await handle.migrate();
 
 const { app, queue } = createApp({ env, db: handle.db, clients, logRequests: true });
 
@@ -31,13 +33,17 @@ const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
     }`,
   );
   console.log(`Database: ${env.DATABASE_URL ? 'Postgres' : `PGlite (${env.PGLITE_DIR})`}`);
+  console.log(`Queue: ${env.QUEUE}`);
 });
 
 // Refresh the catalogue in the background: the API answers straight away with the last synced
-// catalogue, and syncCatalogue logs its own result or failure.
-void syncClients({ db: handle.db, clients: clients.all() }).catch((error: unknown) =>
-  console.error('[catalogue] startup sync failed', error),
-);
+// catalogue, and syncCatalogue logs its own result or failure. Off on Cloud Run, where the CPU is
+// throttled outside requests and Cloud Scheduler calls /jobs/catalogue-sync every hour instead.
+if (env.SYNC_ON_START) {
+  void syncClients({ db: handle.db, clients: clients.all() }).catch((error: unknown) =>
+    console.error('[catalogue] startup sync failed', error),
+  );
+}
 
 async function shutdown() {
   server.close();

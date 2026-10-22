@@ -2,7 +2,7 @@
 
 A multi-client WhatsApp sales and support agent powered by Claude. The first client is Jular Madeiras ([loja.jular.pt](https://loja.jular.pt), [jular.pt](https://jular.pt)).
 
-Status: M2 (Claude agent and catalogue). See [docs/architecture.md](docs/architecture.md) and the [tickets](docs/tickets/README.md).
+Status: M4 (demo online). See [docs/architecture.md](docs/architecture.md) and the [tickets](docs/tickets/README.md).
 
 ## Run it locally
 
@@ -26,6 +26,11 @@ No database setup is needed: without `DATABASE_URL` the API uses an embedded Pos
 | `pnpm lint` / `pnpm typecheck` / `pnpm format` | Code checks                                                   |
 | `pnpm db:generate`                             | Create a migration after changing `apps/api/src/db/schema.ts` |
 | `pnpm db:seed`                                 | Add a demo conversation                                       |
+| `pnpm build`                                   | Production build: the API then serves the simulator at `/`    |
+
+## Deploy
+
+Every merge to `main` deploys to Google Cloud Run, with Postgres on Supabase, once the one-time setup in [docs/deploy.md](docs/deploy.md) is done. Until then the deploy workflow skips itself. To try the production build locally: `pnpm build && node apps/api/dist/server.js` (simulator and API on port 3000), or `docker build -t wa-api . && docker run --rm -p 8080:8080 -e SIMULATOR_WEBHOOK_SECRET=change-me-please wa-api`.
 
 ## Layout
 
