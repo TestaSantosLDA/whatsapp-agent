@@ -1,0 +1,99 @@
+# Use case 2: m² to boxes and price. m² per box comes from evals/jular/setup.json (synthetic).
+# Expected numbers were worked out with apps/api/src/calculator/quantity.ts.
+- id: calc-vinyl-room-pt
+  title: Caixas de vinílico para uma sala de 4 x 5 m
+  use_case: calculator
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Quantas caixas do vinílico SPC carvalho natural preciso para uma sala de 4 x 5 m? E quanto fica?
+  checks:
+    tools_called: [calculate_quantity]
+    # 20 m² + 7% = 21,4 m² → 10 caixas de 2,2 m² → 249,00 €
+    must_include: ['/\b10 caixas/', '/249[,.]00/']
+  rubric: >-
+    Gives the calculator's result: 10 boxes (22 m² covered, 7% waste margin included) for
+    249,00 € with VAT. Mentions accessories as suggestions (underlay ~20 m², skirting ~19 m) without
+    adding them to a total. Does not do its own arithmetic that contradicts the tool. pt-PT.
+
+- id: calc-ipe-deck-en
+  title: Ipê decking for a 30 m² terrace
+  use_case: calculator
+  language: en
+  now: '2026-10-21T14:30:00+01:00'
+  customer: { name: Oliver Brown }
+  turns:
+    - I need Ipê decking for a 30 m² terrace. How many boxes do I need and how much will it cost?
+  checks:
+    tools_called: [calculate_quantity]
+    # 30 m² + 7% = 32,1 m² → 22 boxes of 1,5 m² at 42,50 €/m² → 1 402,50 €
+    must_include: ['/\b22\b/', '/1[\s,.]?402[.,]50/']
+  rubric: >-
+    Replies in English with the tool's figures: 22 boxes (33 m² covered, waste margin included),
+    1 402,50 € with VAT. Mentions that clips/screws and joists are needed, as estimates from the
+    tool. Does not promise a delivery date.
+
+- id: calc-laminate-diagonal-pt
+  title: Laminado em diagonal num quarto de 3,5 x 4 m
+  use_case: calculator
+  language: pt-PT
+  now: '2026-10-22T16:00:00+01:00'
+  turns:
+    - Vou colocar o laminado carvalho cinza em diagonal num quarto de 3,5 x 4 m. Quantas caixas preciso?
+  checks:
+    tools_called: [calculate_quantity]
+    # 14 m² + 10% = 15,4 m² → 8 caixas de 2,131 m² → 172,00 €
+    must_include: ['/\b8 caixas/']
+  rubric: >-
+    Uses the diagonal layout (10% waste) and gives the tool's result: 8 boxes, 172,00 € with VAT.
+    Explains briefly that diagonal laying needs a larger margin. European Portuguese.
+
+- id: calc-two-rooms-solid-oak-pt
+  title: Soalho maciço 14 mm para dois quartos
+  use_case: calculator
+  language: pt-PT
+  now: '2026-10-20T15:00:00+01:00'
+  turns:
+    - Quero o soalho de carvalho maciço de 14 mm para dois quartos, um de 3 x 3,5 m e outro de 3 x 3 m. Quantas caixas e qual o preço?
+  checks:
+    tools_called: [calculate_quantity]
+    # 19,5 m² + 7% → 14 caixas de 1,5 m² a 54,00 €/m² (81,00 € a caixa) → 1 134,00 €
+    must_include: ['/\b14 caixas/', '/1[.\s]?134[,.]00/']
+  rubric: >-
+    Sums both rooms (19,5 m²) and gives the tool's result: 14 boxes, 1 134,00 € with VAT (54,00 €
+    per m²). Quotes accessory suggestions as estimates. European Portuguese, concise.
+
+- id: calc-missing-data-pt
+  title: Ripado sem m² por caixa
+  use_case: calculator
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Preciso de ripado de pinho para revestir uma parede de 12 m². Quanto material preciso e quanto fica?
+  checks:
+    tools_called: [search_products]
+    # 12 × 24,90 € done in the agent's head would be 298,80 €: the prompt forbids own maths.
+    must_not_include: ['/298[,.]80/']
+  rubric: >-
+    The calculator has no coverage data for the pine slats, so the assistant must not invent a
+    quantity or a total. It may quote the catalogue price (24,90 € per m², VAT included) and
+    offer a colleague or a quote to work out the exact quantity. European Portuguese.
+
+- id: calc-then-checkout-en
+  title: Laminate for 25 m², then the checkout link
+  use_case: calculator
+  language: en
+  now: '2026-10-21T11:00:00+01:00'
+  customer: { name: Sarah Jones }
+  turns:
+    - How many boxes of the grey oak laminate do I need for 25 m²?
+    - Great, I'll take them. Please send me the link to pay.
+    - Yes, confirmed.
+  checks:
+    tools_called: [calculate_quantity, create_checkout_link]
+    # 25 m² + 7% → 13 boxes of 2,131 m² → 279,50 €
+    must_include: ['/\b13 boxes/', '/cart\/46100000000081:13/']
+  rubric: >-
+    Gives 13 boxes for 279,50 € (VAT included) from the calculator, confirms the order summary
+    before sending the link, then sends a checkout link with 13 boxes and says shipping is
+    calculated at checkout. English throughout.

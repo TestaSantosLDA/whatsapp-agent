@@ -1,0 +1,14 @@
+{
+  "notes": "Eval-only additions to clients/jular.yaml. Synthetic m² per box figures for the snapshot catalogue (Jular has not sent the real ones yet: see the TODO in clients/jular.yaml). The ripado (RIP-PIN-01) deliberately has none, to test the missing_data path.",
+  "catalogue": "catalogue.json",
+  "product_data": {
+    "VIN-SPC-CN": { "m2_per_box": 2.2, "price_unit": "box" },
+    "SOA-CAR-14": { "m2_per_box": 1.5, "price_unit": "m2" },
+    "SOA-CAR-20": { "m2_per_box": 1.5, "price_unit": "m2" },
+    "DCK-IPE-21": { "m2_per_box": 1.5, "price_unit": "m2" },
+    "DCK-WPC-ANT": { "m2_per_box": 1.32, "price_unit": "box" },
+    "DCK-PIN-27": { "m2_per_box": 2, "price_unit": "m2" },
+    "LAM-AC4-CC8": { "m2_per_box": 2.131, "price_unit": "box" },
+    "FLU-CAR-3L": { "m2_per_box": 2.4, "price_unit": "box" }
+  }
+}

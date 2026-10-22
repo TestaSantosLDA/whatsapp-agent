@@ -1,0 +1,120 @@
+# Use case 4: lead and quote capture, plus order drafts (islands, special transport).
+# Routing (clients/jular.yaml): Algarve/Faro → albufeira, Norte/Porto/Braga → maia, structures
+# and Treehouse → azambuja, orders → camarate, otherwise camarate.
+- id: lead-pro-deck-quote-algarve-pt
+  title: Empreiteiro pede orçamento de deck para hotel no Algarve
+  use_case: lead
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  customer: { name: Carlos Mendes }
+  turns:
+    - Bom dia, sou empreiteiro e preciso de orçamento para 200 m² de deck de ipê para um hotel em Albufeira.
+    - A obra começa em março. O meu nome é Carlos Mendes. Pode registar o pedido.
+    - Sim, está correto, confirmo.
+  checks:
+    tools_called: [save_lead]
+    lead: { type: quote, branch: albufeira }
+    emails: [lead]
+  rubric: >-
+    Collects only what is missing (location and request type are already given), repeats the key
+    details (200 m² of Ipê deck, hotel in Albufeira, from March) and asks for confirmation before
+    saving. After saving, says the Sul (Albufeira) team will contact him within one working day
+    ("um dia útil"), without promising a price or a shorter time. European Portuguese.
+
+- id: lead-sample-porto-en
+  title: Sample request from Porto
+  use_case: lead
+  language: en
+  now: '2026-10-21T15:00:00+01:00'
+  customer: { name: Emma Wilson }
+  turns:
+    - Hi, could I get a sample of the grey oak laminate? I live in Porto.
+    - Yes please, register it. My name is Emma Wilson.
+    - Yes, that's correct.
+  checks:
+    tools_called: [save_lead]
+    lead: { type: sample, branch: maia }
+  rubric: >-
+    Treats it as a sample request, confirms the details before saving, and after saving says the
+    Norte (Maia) team will contact her within one working day. Does not promise when the sample
+    arrives. English throughout.
+
+- id: lead-glulam-structure-pt
+  title: Arquiteto pede informação sobre cobertura em lamelado colado
+  use_case: lead
+  language: pt-PT
+  now: '2026-10-22T11:00:00+01:00'
+  customer: { name: João Pires }
+  turns:
+    - Estou a projetar uma cobertura em madeira lamelada colada para um pavilhão em Leiria, com um vão de 25 m. Podem ajudar-me?
+    - Sou o arquiteto João Pires. Queria um orçamento, a obra é para o próximo ano. Pode registar.
+    - Sim, confirmo.
+  checks:
+    tools_called: [save_lead]
+    lead: { branch: azambuja }
+  rubric: >-
+    Recognises a structures project (Engenharia e Estruturas, Kerto/glulam spans up to 40 m) and
+    routes it to the technical department in Azambuja. Asks only for what is missing, confirms
+    the summary before saving, and does not quote a price or design advice it cannot ground.
+    European Portuguese.
+
+- id: lead-asks-location-pt
+  title: Orçamento sem localidade
+  use_case: lead
+  language: pt-PT
+  now: '2026-10-20T14:30:00+01:00'
+  customer: { name: Marta Silva }
+  turns:
+    - Queria um orçamento para soalho de madeira maciça para uma moradia, cerca de 150 m².
+    - A moradia fica em Braga.
+    - Sim, pode registar o pedido.
+    - Sim, confirmo.
+  checks:
+    tools_called: [save_lead]
+    lead: { type: quote, branch: maia }
+  rubric: >-
+    Asks for the missing location (one question at a time, not a form), then confirms the details
+    (150 m² of solid wood flooring, house in Braga) before saving. After saving says the Norte
+    (Maia) team will contact her within one working day. European Portuguese.
+
+- id: lead-azores-order-draft-pt
+  title: Encomenda para os Açores
+  use_case: lead
+  language: pt-PT
+  now: '2026-10-21T10:00:00+01:00'
+  customer: { name: Rita Sousa }
+  turns:
+    - Quero encomendar 20 caixas do deck compósito WPC antracite com entrega em Ponta Delgada, nos Açores.
+    - A morada é Rua do Mercado 12, 9500-326 Ponta Delgada. O meu nome é Rita Sousa.
+    - Sim, confirmo a encomenda.
+  checks:
+    tools_called: [send_order_draft]
+    tools_not_called: [create_checkout_link]
+    must_not_include: ['jular.pt/cart']
+    lead: { type: order, branch: camarate }
+    emails: [order_draft]
+  rubric: >-
+    Does not send a checkout link for the Azores. Confirms items (20 boxes of the WPC composite
+    deck, 49,90 € each, 998,00 € before transport) and the address, then passes the order to the
+    team and says the team will confirm the final price and transport, and nothing is charged
+    until she accepts. European Portuguese.
+
+- id: lead-special-transport-beams-pt
+  title: Vigas GL24h com transporte especial
+  use_case: lead
+  language: pt-PT
+  now: '2026-10-22T10:30:00+01:00'
+  customer: { name: Rui Almeida }
+  turns:
+    - Quero comprar 3 vigas lameladas GL24h de 12 m com entrega em Santarém.
+    - A morada é Rua Direita 5, 2000-100 Santarém. Sim, são mesmo as 3 vigas de 12 m.
+    - Sim, confirmo.
+  checks:
+    tools_called: [send_order_draft]
+    must_not_include: ['jular.pt/cart']
+    lead: { type: order }
+  rubric: >-
+    Explains that these beams need special transport, quoted case by case after the order, so
+    there is no checkout link. Confirms 3 beams (890,00 € each, 2 670,00 € before transport) and
+    the address, passes the order to the team and says nothing is charged until the customer
+    accepts the transport quote. No delivery date promised. European Portuguese.

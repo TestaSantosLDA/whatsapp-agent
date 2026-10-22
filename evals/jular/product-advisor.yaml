@@ -1,0 +1,89 @@
+# Use case 1: product advisor (recommends from the catalogue). Facts: evals/jular/catalogue.json.
+- id: advisor-bathroom-floor-pt
+  title: Pavimento para casa de banho
+  use_case: product_advisor
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Boa tarde, preciso de pavimento para uma casa de banho. O que me recomendam?
+  checks:
+    tools_called: [search_products]
+    must_include: ['/vin[ií]lico|spc/', '/24,90|24\.90/']
+    must_not_include: ['banheiro']
+    lead: none
+    status: bot
+  rubric: >-
+    Recommends the water-resistant SPC vinyl floor (Pavimento Vinílico SPC Carvalho Natural,
+    24,90 € per box of 2,2 m², VAT included) for a bathroom. Does not recommend the solid oak
+    floor or the laminate for a wet area. Starts by saying it is Jular's automated assistant.
+    European Portuguese, short, at most one question.
+
+- id: advisor-pool-deck-en
+  title: Decking around a swimming pool
+  use_case: product_advisor
+  language: en
+  now: '2026-10-20T10:30:00+01:00'
+  customer: { name: Emma Wilson }
+  turns:
+    - Hi, I'm looking for decking around a swimming pool. What do you have?
+  checks:
+    tools_called: [search_products]
+    must_include: ['/ip[eê]|composite|wpc|pine/']
+    lead: none
+  rubric: >-
+    Replies in English. Suggests exterior decking from the catalogue (Ipê 21 mm at 42,50 €,
+    composite WPC anthracite at 49,90 €, treated pine at 18,90 €), with prices only as the tools
+    returned them and the unit as sold. May ask one question (budget, look, maintenance) to
+    narrow it down. Does not invent specifications such as slip ratings or warranties.
+
+- id: advisor-deck-oil-pt
+  title: Óleo para manter um deck de ipê
+  use_case: product_advisor
+  language: pt-PT
+  now: '2026-10-21T15:00:00+01:00'
+  turns:
+    - Tenho um deck de ipê com 3 anos. Que óleo devo usar para o manter?
+  checks:
+    tools_called: [search_products]
+    must_include: ['Osmo']
+    must_not_include: ['3032']
+  rubric: >-
+    Recommends an Osmo deck oil for exterior use (016 Bangkirai or 007 Teca), with the sizes and
+    prices the tools returned (0,75 L / 2,5 L). Does not recommend the interior Polyx 3032
+    oil-wax for a deck. European Portuguese, concise.
+
+- id: advisor-out-of-stock-pt
+  title: Soalho de 20 mm esgotado
+  use_case: product_advisor
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Têm soalho de carvalho maciço de 20 mm? Queria encomendar para a sala.
+  checks:
+    tools_called: [search_products]
+    tools_not_called: [create_checkout_link]
+    must_include:
+      ['/esgotad|sem stock|indispon[ií]vel|não (está|temos) dispon[ií]vel|não há stock/']
+  rubric: >-
+    Says clearly that the 20 mm solid oak floor is out of stock and never implies it can be
+    ordered now. Offers the available 14 mm variant (54,00 €) as an alternative and/or a
+    colleague to check restocking, without promising a restock date. European Portuguese.
+
+- id: advisor-checkout-vinyl-pt
+  title: Compra de vinílico com link de checkout
+  use_case: product_advisor
+  language: pt-PT
+  now: '2026-10-20T11:00:00+01:00'
+  turns:
+    - Quero comprar o pavimento vinílico SPC carvalho natural.
+    - Quero 10 caixas, com entrega em Lisboa.
+    - Sim, confirmo.
+  checks:
+    tools_called: [search_products, create_checkout_link]
+    must_include: ['/loja\.jular\.pt\/cart\/46100000000011:10/']
+    tools_not_called: [send_order_draft]
+    lead: none
+  rubric: >-
+    Before sending the link, summarises 10 boxes of the SPC vinyl and the total of 249,00 € with
+    VAT, and asks the customer to confirm. Then sends the checkout link with 10 boxes and says
+    shipping is calculated at checkout. Never promises a delivery date. European Portuguese.
