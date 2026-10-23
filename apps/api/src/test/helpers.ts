@@ -4,6 +4,7 @@ import { createApp, type AppDeps } from '../app.js';
 import { ClientRegistry } from '../clients/registry.js';
 import { openDb } from '../db/index.js';
 import { loadEnv } from '../env.js';
+import { MemoryFileStore } from '../knowledge/file-store.js';
 
 export const SECRET = 'test-simulator-secret';
 
@@ -54,6 +55,8 @@ export async function testApp(
     | 'serveAdmin'
     | 'supabaseAdmin'
     | 'jwks'
+    | 'files'
+    | 'documentReader'
   > = {},
 ) {
   const env = loadEnv({
@@ -75,6 +78,8 @@ export async function testApp(
     serveAdmin: opts.serveAdmin ?? false,
     supabaseAdmin: opts.supabaseAdmin,
     jwks: opts.jwks,
+    files: opts.files ?? new MemoryFileStore(),
+    documentReader: opts.documentReader,
   });
   return { ...built, env, clients, db: handle.db, close: () => handle.close() };
 }

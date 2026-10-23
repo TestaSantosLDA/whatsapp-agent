@@ -180,6 +180,7 @@ tools:
   - create_checkout_link
   - save_lead
   - send_order_draft
+  - search_documents
 
 model:
   id: claude-opus-5-5

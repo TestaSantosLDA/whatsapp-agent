@@ -165,6 +165,7 @@ export async function main(argv: string[], deps: CliDeps): Promise<number> {
     anthropic,
     graderModel,
     source,
+    setup: set.setup,
     concurrency,
     onCaseDone: (r, done, total) =>
       deps.out(

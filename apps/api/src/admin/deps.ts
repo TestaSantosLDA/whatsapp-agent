@@ -5,6 +5,7 @@ import type { Db } from '../db/index.js';
 import type { Env } from '../env.js';
 import type { SupabaseJwtVerifier } from './auth.js';
 import type { LeadsService } from './leads/service.js';
+import type { KnowledgeService } from './knowledge/service.js';
 import type { SettingsService } from './settings/service.js';
 import type { TeamService } from './team/service.js';
 
@@ -23,6 +24,8 @@ export interface AdminDeps {
   settings: SettingsService;
   /** WA-024: the leads pipeline. */
   leads: LeadsService;
+  /** WA-026. */
+  knowledge: KnowledgeService;
   /** Secret of the dev login's tokens; undefined unless ADMIN_DEV_LOGIN is on (never in prod). */
   devSecret?: Uint8Array;
 }

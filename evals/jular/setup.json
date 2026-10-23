@@ -1,14 +1,60 @@
 {
-  "notes": "Eval-only additions to clients/jular.yaml. Synthetic m² per box figures for the snapshot catalogue (Jular has not sent the real ones yet: see the TODO in clients/jular.yaml). The ripado (RIP-PIN-01) deliberately has none, to test the missing_data path.",
+  "notes": "Eval-only additions to clients/jular.yaml. Synthetic m² per box figures for the snapshot catalogue (Jular has not sent the real ones yet: see the TODO in clients/jular.yaml). The ripado (RIP-PIN-01) deliberately has none, to test the missing_data path. The technical sheet under documents is synthetic too (WA-026): seeded as a live knowledge document for search_documents.",
   "catalogue": "catalogue.json",
   "product_data": {
-    "VIN-SPC-CN": { "m2_per_box": 2.2, "price_unit": "box" },
-    "SOA-CAR-14": { "m2_per_box": 1.5, "price_unit": "m2" },
-    "SOA-CAR-20": { "m2_per_box": 1.5, "price_unit": "m2" },
-    "DCK-IPE-21": { "m2_per_box": 1.5, "price_unit": "m2" },
-    "DCK-WPC-ANT": { "m2_per_box": 1.32, "price_unit": "box" },
-    "DCK-PIN-27": { "m2_per_box": 2, "price_unit": "m2" },
-    "LAM-AC4-CC8": { "m2_per_box": 2.131, "price_unit": "box" },
-    "FLU-CAR-3L": { "m2_per_box": 2.4, "price_unit": "box" }
-  }
+    "VIN-SPC-CN": {
+      "m2_per_box": 2.2,
+      "price_unit": "box"
+    },
+    "SOA-CAR-14": {
+      "m2_per_box": 1.5,
+      "price_unit": "m2"
+    },
+    "SOA-CAR-20": {
+      "m2_per_box": 1.5,
+      "price_unit": "m2"
+    },
+    "DCK-IPE-21": {
+      "m2_per_box": 1.5,
+      "price_unit": "m2"
+    },
+    "DCK-WPC-ANT": {
+      "m2_per_box": 1.32,
+      "price_unit": "box"
+    },
+    "DCK-PIN-27": {
+      "m2_per_box": 2,
+      "price_unit": "m2"
+    },
+    "LAM-AC4-CC8": {
+      "m2_per_box": 2.131,
+      "price_unit": "box"
+    },
+    "FLU-CAR-3L": {
+      "m2_per_box": 2.4,
+      "price_unit": "box"
+    }
+  },
+  "documents": [
+    {
+      "name": "Ficha técnica Deck WPC Antracite.pdf",
+      "passages": [
+        {
+          "page": 1,
+          "label": "Página 1",
+          "text": "Ficha técnica — Deck Compósito WPC Antracite (DCK-WPC-ANT). Composição: 60% fibra de madeira, 30% HDPE, 10% aditivos. Dimensões da régua: 2200 x 146 x 23 mm. Caixa: 4 réguas = 1,32 m². Peso: 2,9 kg por metro linear."
+        },
+        {
+          "page": 2,
+          "label": "Página 2",
+          "text": "Instalação. Espaçamento máximo entre barrotes (eixo a eixo): 35 cm em uso residencial, 30 cm em zonas públicas ou de piscina. Deixar 5 mm de junta de dilatação entre réguas e 10 mm junto a paredes. Fixar com clips ocultos em inox; não aparafusar à vista. Barrotes de alumínio ou WPC, nunca diretamente sobre terra."
+        },
+        {
+          "page": 3,
+          "label": "Página 3",
+          "text": "Manutenção e garantia. Limpar com água e sabão neutro; não precisa de óleo nem verniz. Garantia de 10 anos contra apodrecimento e ataque de térmitas em uso residencial, com instalação conforme esta ficha."
+        }
+      ]
+    }
+  ]
 }

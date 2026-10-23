@@ -19,6 +19,7 @@ import { ClientRegistry } from '../clients/registry.js';
 import { openDb, type Db } from '../db/index.js';
 import { agentRuns, contacts, conversations, leads, messages, outbox } from '../db/schema.js';
 import { loadEnv } from '../env.js';
+import { seedDocument, seedProductOverrides } from '../knowledge/seed.js';
 import type { EvalCase, EvalSetup } from './cases.js';
 import { runChecks, type CheckResult, type ToolCallSummary, type Transcript } from './checks.js';
 import { gradeConversation, type Grade } from './grader.js';
@@ -49,6 +50,8 @@ export interface RunOptions {
   /** Default: the same client as the agent. */
   graderAnthropic?: Anthropic;
   source: CatalogueSource;
+  /** Seeds the eval set's knowledge documents and approved product data (WA-026). */
+  setup?: EvalSetup;
   concurrency?: number;
   /** Longest a single turn may take before the case is abandoned. */
   turnTimeoutMs?: number;
@@ -92,6 +95,15 @@ export function snapshotPath(dir: string, setup: EvalSetup): string {
   return join(dir, setup.catalogue ?? 'catalogue.json');
 }
 
+/** The eval set's documents and approved product data, as if uploaded and approved. */
+export async function seedKnowledge(db: Db, client: ClientConfig, setup?: EvalSetup) {
+  if (!setup) return;
+  for (const doc of setup.documents) await seedDocument(db, client.id, doc);
+  if (Object.keys(setup.product_overrides).length) {
+    await seedProductOverrides(db, client, setup.product_overrides);
+  }
+}
+
 /** Plays every case and returns the results in case order. */
 export async function runCases(opts: RunOptions): Promise<CaseResult[]> {
   const { client } = opts;
@@ -101,6 +113,7 @@ export async function runCases(opts: RunOptions): Promise<CaseResult[]> {
   try {
     const synced = await syncCatalogue({ db, client, source: opts.source });
     if (!synced.ok) throw new Error(`catalogue sync failed: ${synced.error}`);
+    await seedKnowledge(db, client, opts.setup);
 
     // One responder per customer phone, so each case has its own clock.
     const responders = new Map<string, ClaudeResponder>();

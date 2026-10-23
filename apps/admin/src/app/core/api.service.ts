@@ -48,11 +48,13 @@ export class AdminApi {
     const headers: Record<string, string> = { Accept: 'application/json' };
     const token = this.auth.token();
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    // FormData (file uploads) sets its own multipart content type with the boundary.
+    const form = body instanceof FormData;
+    if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
     const res = await fetch(url, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : form ? body : JSON.stringify(body),
     });
     if (res.status === 401) {
       await this.auth.signOut();

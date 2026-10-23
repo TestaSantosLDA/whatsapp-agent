@@ -247,21 +247,89 @@ export const leadNotes = pgTable(
 /** Who changed what on a lead: created, status, owner, note, reminders. */
 export const leadEvents = pgTable(
   'lead_events',
-  {
-    id: id(),
-    clientId: clientId(),
-    leadId: uuid('lead_id')
-      .notNull()
-      .references(() => leads.id, { onDelete: 'cascade' }),
     /** The team member who did it; empty for the agent and the scheduled reminders. */
     actorMemberId: uuid('actor_member_id').references(() => teamMembers.id, {
-      onDelete: 'set null',
-    }),
     /** A LeadEventKind (packages/shared/src/leads.ts). */
     kind: text('kind').notNull(),
     /** Details per kind, e.g. `{ from, to, lostReason }` for a status change. */
     data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
-    createdAt: createdAt(),
-  },
   (t) => [index('lead_events_lead').on(t.leadId, t.createdAt)],
+// ---------- WA-026: knowledge base ----------
+
+/** A file the team uploaded (technical sheet, price list, catalogue). The file is in the FileStore. */
+export const documents = pgTable(
+  'documents',
+    /** The file name as uploaded; the agent cites the document by it. */
+    name: text('name').notNull(),
+    /** pdf | xlsx | csv | docx | png | jpg */
+    type: text('type').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    /** Key in the FileStore: `<clientId>/<documentId>/<filename>`. */
+    storagePath: text('storage_path').notNull(),
+    status: text('status', { enum: ['processing', 'needs_review', 'live', 'failed'] })
+      .default('processing'),
+    /** Bumped on every replace, so a job for an older file does not write over the new one. */
+    version: integer('version').notNull().default(1),
+    error: text('error'),
+    uploadedBy: uuid('uploaded_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    /** The extraction's model, tokens and estimated cost. */
+    model: text('model'),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    costUsd: numeric('cost_usd', { precision: 10, scale: 6 }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  (t) => [index('documents_client').on(t.clientId, t.createdAt)],
+
+/** A page (PDF), sheet chunk (XLSX/CSV) or section (DOCX) of a document, for search_documents. */
+export const documentPassages = pgTable(
+  'document_passages',
+    documentId: uuid('document_id')
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    /** 1-based page, sheet chunk or section number. */
+    page: integer('page').notNull(),
+    /** e.g. "Folha Preços, linhas 2–40". */
+    label: text('label'),
+    text: text('text').notNull(),
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      (): SQL =>
+        sql`setweight(to_tsvector('portuguese', coalesce(${documentPassages.label}, '') || ' ' || ${documentPassages.text}), 'A') || setweight(to_tsvector('simple', ${documentPassages.text}), 'B')`,
+    ),
+  (t) => [
+    index('document_passages_document').on(t.documentId, t.page),
+    index('document_passages_search').using('gin', t.searchVector),
+  ],
+
+/** A product field value Claude read in a document, waiting for an admin (WA-026). */
+export const productDataProposals = pgTable(
+  'product_data_proposals',
+    page: integer('page'),
+    /** Handle, SKU or variant id, like the keys of `product_data` in the client YAML. */
+    productKey: text('product_key'),
+    /** The matched product's title, or the name Claude read when nothing matched. */
+    productLabel: text('product_label').notNull(),
+    field: text('field').notNull(),
+    value: jsonb('value').notNull(),
+    /** The approved value when an admin edited it. */
+    editedValue: jsonb('edited_value'),
+    confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull(),
+    quote: text('quote'),
+    status: text('status', { enum: ['pending', 'approved', 'rejected', 'edited'] })
+      .default('pending'),
+    decidedBy: uuid('decided_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+  (t) => [index('product_data_proposals_document').on(t.documentId)],
+
+/**
+ * Approved product data (WA-026), merged over clients/<id>.yaml `product_data` into the
+ * catalogue's `extra` (DB wins over YAML; variant id > SKU > handle within each).
+ */
+export const productDataOverrides = pgTable(
+  'product_data_overrides',
+    productKey: text('product_key').notNull(),
+    /** Where the value came from; kept when the document is deleted unless the data is too. */
+    documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+    proposalId: uuid('proposal_id').references(() => productDataProposals.id, {
+    approvedBy: uuid('approved_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+  (t) => [uniqueIndex('product_data_overrides_key').on(t.clientId, t.productKey, t.field)],
 );
