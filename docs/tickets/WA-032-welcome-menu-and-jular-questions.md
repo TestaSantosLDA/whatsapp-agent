@@ -1,8 +1,8 @@
 # WA-032: Welcome menu and Jular's real customer questions
 
-| Status    | Milestone | Depends on     | PR  |
-| --------- | --------- | -------------- | --- |
-| in review | Backlog   | WA-009, WA-019 |     |
+| Status | Milestone | Depends on     | PR  |
+| ------ | --------- | -------------- | --- |
+| done   | Backlog   | WA-009, WA-019 | #12 |
 
 ## Why
 
@@ -14,14 +14,14 @@ Jular sent (2026-10-23) the three questions customers most often start with, and
 - **Jular:** `welcome_menu` with "Procuro um produto", "Comprar ou orçamento" and "Lojas e contactos".
 - **Evals:** `evals/jular/jular-questions.yaml`: the menu (greeting in pt-PT and English, a direct question without menu) and the customer questions: modular-house typologies, where to see prices, deck installation, pavilions, house foundations. The last three are "to confirm" cases: the agent must not invent the answer until Jular replies. The eval set limit goes from 48 to 60 cases.
 
-## Waiting on Jular
+## Jular's answers (2026-10-23)
 
-- Do you install decks, or only supply the material?
-- Do you build or assemble pavilions, or only supply the wood (Kerto, up to 40 m spans)?
-- What foundation does a Treehouse need (slab, piles, other), and who does it?
-- What does the Treehouse price include?
+- Decks: Jular only supplies the material, it does not install.
+- Pavilions: both, it builds complete Kerto pavilions or supplies only the wood.
+- Treehouse foundations: Jular does the whole job, foundations included.
+- What the Treehouse price includes: still to confirm.
 
-When the answers arrive: add them to `clients/jular.yaml` (business lines or the Treehouse skill) or upload them as a document (WA-026), and tighten the three "to confirm" rubrics.
+The answers are in `clients/jular.yaml` and the deck, pavilion and foundation evals check them. The remaining open questions for Jular are in `docs/jular-perguntas-em-aberto.md`.
 
 ## Acceptance criteria
 
