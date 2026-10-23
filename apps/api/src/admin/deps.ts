@@ -6,6 +6,7 @@ import type { Env } from '../env.js';
 import type { InsightsService } from './overview/service.js';
 import type { PrivacyService } from '../privacy/service.js';
 import type { SupabaseJwtVerifier } from './auth.js';
+import type { CustomersService } from './customers/service.js';
 import type { LeadsService } from './leads/service.js';
 import type { QuotesService } from './quotes/service.js';
 import type { KnowledgeService } from './knowledge/service.js';
@@ -38,6 +39,8 @@ export interface AdminDeps {
   privacy: PrivacyService;
   /** WA-023. */
   inbox: InboxService;
+  /** WA-027: customer records and profiles. */
+  customers: CustomersService;
   /** Secret of the dev login's tokens; undefined unless ADMIN_DEV_LOGIN is on (never in prod). */
   devSecret?: Uint8Array;
 }

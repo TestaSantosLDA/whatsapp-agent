@@ -57,6 +57,8 @@ import { PdfLibQuoteRenderer, type QuotePdfRenderer } from './admin/quotes/pdf.j
 import { publicQuoteRoutes } from './admin/quotes/routes.js';
 import { InsightsService } from './admin/overview/service.js';
 import { WeeklyInsights } from './admin/overview/weekly.js';
+import { customerSubject } from './customers/records.js';
+import { CustomersService } from './admin/customers/service.js';
 
 export interface AppDeps {
   env: Env;
@@ -198,7 +200,9 @@ export function createApp(deps: AppDeps) {
     publicBaseUrl: deps.env.PUBLIC_BASE_URL,
   });
   // Privacy tools (WA-028). Features with customer data add handlers in privacy/handlers.ts.
-  const privacy = new PrivacyService({ db: deps.db, messages });
+  // WA-027: a customer is every number of their record.
+  const privacy = new PrivacyService({ db: deps.db, messages, subjects: customerSubject });
+  const customers = new CustomersService({ db: deps.db, privacy });
   const inbox = new InboxService({
     db: deps.db,
     clients: deps.clients,
@@ -306,6 +310,7 @@ export function createApp(deps: AppDeps) {
       privacy,
       inbox,
       insights,
+      customers,
       devSecret,
     }),
   );
@@ -333,6 +338,7 @@ export function createApp(deps: AppDeps) {
     mailer,
     insights,
     weeklyInsights,
+    customers,
   };
 }
 

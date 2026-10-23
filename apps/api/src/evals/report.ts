@@ -139,20 +139,18 @@ export function renderMarkdown(r: EvalReport): string {
     if (c.grade) lines.push(`- grader (${c.grade.pass ? 'pass' : 'fail'}): ${c.grade.reason}`);
     if (c.error) lines.push(`- error: ${c.error}`);
     lines.push('');
-    c.transcript.turns.forEach((turn, i) => {
-      lines.push(`**${i + 1}. Customer:** ${turn.customer}`, '');
-      if (turn.toolCalls.length) {
-        lines.push(
-          `_tools: ${turn.toolCalls.map((x) => `${x.name}${x.ok ? '' : ' (failed)'}`).join(', ')}_`,
-          '',
-        );
-      }
-      if (turn.error) lines.push(`_turn error: ${turn.error}_`, '');
-      if (!turn.replies.length) lines.push('> (no reply)', '');
-      for (const reply of turn.replies) {
-        lines.push(...reply.split('\n').map((l) => `> ${l}`), '');
-      }
+    (c.transcript.earlier ?? []).forEach((turns, n) => {
+      lines.push(`_Earlier conversation ${n + 1}:_`, '');
+      renderTurns(lines, turns);
     });
+    if (c.transcript.earlier?.length) lines.push('_The conversation graded:_', '');
+    renderTurns(lines, c.transcript.turns);
+    if (c.transcript.profile) {
+      const fields = c.transcript.profile.map(
+        (p) => `${p.field} = ${JSON.stringify(p.value)}${p.evidence ? ` ("${p.evidence}")` : ''}`,
+      );
+      lines.push(`Profile: ${fields.join('; ') || 'empty'}`, '');
+    }
     lines.push(
       `Status ${c.transcript.status} · leads: ${c.transcript.leads.map((l) => `${l.type}@${l.branchId}`).join(', ') || 'none'} · emails: ${c.transcript.emails.map((e) => e.kind).join(', ') || 'none'}`,
       '',
@@ -161,6 +159,23 @@ export function renderMarkdown(r: EvalReport): string {
     );
   }
   return lines.join('\n');
+}
+
+function renderTurns(lines: string[], turns: CaseResult['transcript']['turns']): void {
+  turns.forEach((turn, i) => {
+    lines.push(`**${i + 1}. Customer:** ${turn.customer}`, '');
+    if (turn.toolCalls.length) {
+      lines.push(
+        `_tools: ${turn.toolCalls.map((x) => `${x.name}${x.ok ? '' : ' (failed)'}`).join(', ')}_`,
+        '',
+      );
+    }
+    if (turn.error) lines.push(`_turn error: ${turn.error}_`, '');
+    if (!turn.replies.length) lines.push('> (no reply)', '');
+    for (const reply of turn.replies) {
+      lines.push(...reply.split('\n').map((l) => `> ${l}`), '');
+    }
+  });
 }
 
 /** A side-by-side table of two or more reports, for choosing a model. */

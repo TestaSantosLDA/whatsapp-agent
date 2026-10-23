@@ -15,6 +15,7 @@ import {
 } from '../db/schema.js';
 import { quotesHandler } from '../admin/quotes/privacy.js';
 import type { PersonalDataHandler, PrivacyContext } from './registry.js';
+import { customerProfileHandler, customerRecordsHandler } from '../customers/privacy.js';
 
 const count = (rows: unknown[]) => rows.length;
 const iso = (d: Date | null) => d?.toISOString() ?? null;
@@ -342,4 +343,7 @@ export const personalDataHandlers: PersonalDataHandler[] = [
   agentRunsHandler,
   privacyRequestsHandler,
   quotesHandler,
+  // WA-027: customer records, notes and profiles (the profile implements clearProfile).
+  customerProfileHandler,
+  customerRecordsHandler,
 ];
