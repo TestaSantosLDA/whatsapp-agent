@@ -29,6 +29,8 @@ export const contacts = pgTable(
     name: text('name'),
     language: text('language'),
     consent: jsonb('consent').$type<Record<string, boolean>>().notNull().default({}),
+    /** WA-028: the customer objected to profiling ("clear profile"); WA-027 must not build one. */
+    profilingOptOut: boolean('profiling_opt_out').notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('contacts_client_wa_id').on(t.clientId, t.waId)],
@@ -83,13 +85,14 @@ export const messages = pgTable(
   ],
 );
 
-/** One row per agent turn, for cost, latency and debugging. */
+/**
+ * One row per agent turn, for cost, latency and debugging. When a customer is deleted (WA-028)
+ * the row is kept for cost figures, without its conversation and without tool inputs and outputs.
+ */
 export const agentRuns = pgTable('agent_runs', {
   id: id(),
   clientId: clientId(),
-  conversationId: uuid('conversation_id')
-    .notNull()
-    .references(() => conversations.id),
+  conversationId: uuid('conversation_id').references(() => conversations.id),
   model: text('model').notNull(),
   inputTokens: integer('input_tokens').notNull().default(0),
   outputTokens: integer('output_tokens').notNull().default(0),
@@ -197,3 +200,58 @@ export const clientSettings = pgTable('client_settings', {
   updatedBy: uuid('updated_by').references(() => teamMembers.id, { onDelete: 'set null' }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------- WA-028: privacy tools ----------
+
+/**
+ * A customer's request about their data, opened by the agent (request_data_deletion) or by the
+ * team, waiting for an admin. The contact link is cleared when the customer is deleted; the row
+ * stays, without personal content, as a record that the request was carried out.
+ */
+export const privacyRequests = pgTable(
+  'privacy_requests',
+  {
+    id: id(),
+    clientId: clientId(),
+    contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+    type: text('type', { enum: ['export', 'delete', 'clear_profile'] }).notNull(),
+    status: text('status', { enum: ['pending', 'done', 'rejected'] })
+      .notNull()
+      .default('pending'),
+    source: text('source', { enum: ['whatsapp', 'dashboard'] })
+      .notNull()
+      .default('whatsapp'),
+    decidedBy: uuid('decided_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    /** Rows changed per table when it was carried out. Counts only. */
+    result: jsonb('result').$type<Record<string, number>>(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('privacy_requests_client_status').on(t.clientId, t.status, t.createdAt)],
+);
+
+/**
+ * Who exported, cleared or deleted what, and when. Never holds personal content: the customer
+ * is a hash of their contact id, and `counts` are rows per table.
+ */
+export const privacyAudit = pgTable(
+  'privacy_audit',
+  {
+    id: id(),
+    clientId: clientId(),
+    /**
+     * The team member (team_members.id); empty for the scheduled retention job. No foreign key:
+     * the entry keeps the id after the member leaves the team.
+     */
+    actorMemberId: uuid('actor_member_id'),
+    action: text('action', {
+      enum: ['export', 'clear_profile', 'delete', 'retention_delete', 'request_rejected'],
+    }).notNull(),
+    /** sha256 of the contact id: lets an auditor match entries without naming the person. */
+    targetHash: text('target_hash').notNull(),
+    requestId: uuid('request_id'),
+    counts: jsonb('counts').$type<Record<string, number>>().notNull().default({}),
+    createdAt: createdAt(),
+  },
+  (t) => [index('privacy_audit_client_time').on(t.clientId, t.createdAt)],
+);

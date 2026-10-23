@@ -39,6 +39,7 @@ import { adminApiRoutes, adminConfig, devLoginSecret } from './admin/router.js';
 import { SettingsService } from './admin/settings/service.js';
 import { SupabaseAdminApi, type SupabaseAdmin } from './admin/supabase-admin.js';
 import { TeamService } from './admin/team/service.js';
+import { PrivacyService } from './privacy/service.js';
 
 export interface AppDeps {
   env: Env;
@@ -117,6 +118,8 @@ export function createApp(deps: AppDeps) {
     dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}/`,
   });
   const settings = new SettingsService({ db: deps.db, clients: deps.clients });
+  // Privacy tools (WA-028). Features with customer data add handlers in privacy/handlers.ts.
+  const privacy = new PrivacyService({ db: deps.db, messages });
 
   const app = new Hono();
   if (deps.logRequests)
@@ -148,6 +151,7 @@ export function createApp(deps: AppDeps) {
       env: deps.env,
       db: deps.db,
       clients: deps.clients,
+      privacy,
       runJob:
         queue instanceof CloudTasksQueue
           ? (name, payload, retryCount) => queue.run(name, payload, retryCount)
@@ -194,6 +198,7 @@ export function createApp(deps: AppDeps) {
       verifier,
       team,
       settings,
+      privacy,
       devSecret,
     }),
   );
@@ -202,7 +207,7 @@ export function createApp(deps: AppDeps) {
   if (deps.serveAdmin ?? deps.serveSimulator ?? true) serveAdmin(app, deps.env.ADMIN_DIST_DIR);
   if (deps.serveSimulator ?? true) serveSimulator(app, deps.env.SIMULATOR_DIST_DIR);
 
-  return { app, queue, bus, messages, backoffice, team, settings, verifier };
+  return { app, queue, bus, messages, backoffice, team, settings, verifier, privacy };
 }
 
 function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise<void>): Queue {

@@ -273,10 +273,16 @@ gcloud scheduler jobs create http wa-keepalive --location="$REGION" \
   --schedule="0 9 * * 1" --time-zone=Europe/Lisbon \
   --uri="$URL/jobs/keepalive" --http-method=POST \
   --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=60s
+gcloud scheduler jobs create http wa-privacy-retention --location="$REGION" \
+  --schedule="30 3 * * *" --time-zone=Europe/Lisbon \
+  --uri="$URL/jobs/privacy-retention" --http-method=POST \
+  --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=300s
 gcloud scheduler jobs run wa-catalogue-sync --location="$REGION"   # run it once now
 ```
 
-The secret is stored in the job's configuration, readable by project owners only. After rotating `JOBS_SECRET`, run `gcloud scheduler jobs update http <job> --location="$REGION" --update-headers="x-jobs-secret=<new>"` for both jobs.
+The daily privacy retention job ([WA-028](tickets/WA-028-privacy-tools.md)) deletes customers with no activity for longer than the client's `privacy.retention_months` (default 24), at most 500 per client and run, through the same handlers as a delete from the dashboard; leads are anonymised, and each deletion is in the privacy audit log as "Apagado por retenção". `?client=<id>` runs one client. Admins see whom it deletes in the next 7 days in Privacidade → Retenção.
+
+The secret is stored in the job's configuration, readable by project owners only. After rotating `JOBS_SECRET`, run `gcloud scheduler jobs update http <job> --location="$REGION" --update-headers="x-jobs-secret=<new>"` for every job.
 
 ## Verify
 

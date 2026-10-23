@@ -122,6 +122,26 @@ export class MessageService {
     return row!;
   }
 
+  /**
+   * Sends without storing the message anywhere: the confirmation that a customer's data was
+   * deleted (WA-028) must not leave a new trace of them.
+   */
+  async sendWithoutHistory(client: ClientConfig, to: string, outbound: OutboundMessage) {
+    const payload = toMetaPayload(to, outbound);
+    const { channelMessageId } = await this.channelFor(client).send(client, payload);
+    const key = EventBus.key(client.id, to);
+    this.bus.publish(key, { type: 'typing', on: false });
+    this.bus.publish(key, {
+      type: 'message',
+      message: {
+        id: channelMessageId,
+        direction: 'outbound',
+        timestamp: new Date().toISOString(),
+        payload,
+      },
+    });
+  }
+
   /** Messages of the contact's open conversation, oldest first. */
   async history(
     clientId: string,

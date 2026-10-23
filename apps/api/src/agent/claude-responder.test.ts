@@ -134,6 +134,7 @@ describe('ClaudeResponder', () => {
     expect((body.tools as { name: string }[]).map((x) => x.name)).toEqual([
       'handoff_to_human',
       'offer_choices',
+      'request_data_deletion',
     ]);
     const msgs = body.messages as { role: string; content: unknown }[];
     expect(msgs.map((m) => m.role)).toEqual(['user', 'system']);

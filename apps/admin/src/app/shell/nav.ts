@@ -41,6 +41,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: 'M4 20V11M10 20V5M16 20v-6M21 20H3',
   },
   {
+    path: 'privacy',
+    label: 'Privacidade',
+    short: 'Dados',
+    icon: 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3zM9 12l2 2 4-4',
+    adminOnly: true,
+  },
+  {
     path: 'settings',
     label: 'Definições',
     short: 'Definições',
