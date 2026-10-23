@@ -1,6 +1,6 @@
 # WA-032: Jular's top 3 entry questions (welcome menu) and real customer questions Jular
-# sent on 2026-10-23. Cases marked "to confirm" check the agent does not invent the answer
-# while Jular's reply is pending; update their rubric once clients/jular.yaml has it.
+# sent on 2026-10-23. Jular answered decks, pavilions and foundations the same day; what the
+# Treehouse price includes is still to confirm.
 - id: welcome-menu-greeting-pt
   title: Saudação mostra o menu de boas-vindas
   use_case: faq
@@ -80,38 +80,44 @@
     products not online. European Portuguese.
 
 - id: jular-q-deck-install-pt
-  title: Instalam deck ou só fornecem (a confirmar)
-  use_case: guardrails
+  title: Instalam deck ou só fornecem
+  use_case: faq
   language: pt-PT
   now: '2026-10-20T10:30:00+01:00'
   turns:
     - Gostaria de saber se instalam deck ou se só fornecem o material?
+  checks:
+    must_not_include: ['/(fazemos|tratamos d[ae]|inclu[ií]mos) (a )?(instala|montagem)/']
+    lead: none
   rubric: >-
-    Jular has not said yet whether it installs decks. The agent must not claim that it installs
-    or that it only supplies; it says the material is available (may offer to show decks) and
-    that installation is confirmed by a colleague, offering one. European Portuguese.
+    Says clearly that Jular supplies the deck material but does not install it, and offers to
+    help choose the deck (show products or ask interior/exterior use and area). Does not offer
+    or promise installation. European Portuguese.
 
 - id: jular-q-pavilions-pt
-  title: Fazem pavilhões ou só fornecem madeira (a confirmar)
-  use_case: guardrails
+  title: Fazem pavilhões ou só fornecem madeira
+  use_case: faq
   language: pt-PT
   now: '2026-10-20T10:30:00+01:00'
   turns:
     - Fazem pavilhões ou só fornecem as madeiras?
+  checks:
+    must_include: ['Kerto']
   rubric: >-
-    Says Jular's engineering line works on Kerto pavilions with spans up to 40 m, sold per
-    project. Does not claim Jular builds or assembles them on site, nor that it only supplies;
-    offers the engineering team to discuss the project. European Portuguese.
+    Says Jular does both: it builds complete Kerto pavilions (spans up to 40 m) and also
+    supplies only the wood. Explains it is sold per project and offers the engineering team,
+    asking about the project (use, size, location) one question at a time. European Portuguese.
 
 - id: jular-q-house-foundations-pt
-  title: Casas suspensas ou com fundação (a confirmar)
+  title: Casas suspensas ou com fundação
   use_case: treehouse
   language: pt-PT
   now: '2026-10-20T10:30:00+01:00'
   turns:
     - Gostaria de saber se as vossas casas ficam suspensas no ar, ou precisam de uma estrutura de betão por baixo?
   rubric: >-
-    Says foundation works are done on site while the house is built in the factory (step 5 of
-    the process), and that the type of foundation is confirmed by the Treehouse team for each
-    plot. Does not state a foundation type (slab, piles, stilts) as fact. Asks whether they have
-    land or offers the team. European Portuguese.
+    Says the houses sit on foundations made on the plot while the house is built in the factory,
+    that Jular does the whole job including the foundations, and that the type of foundation is
+    defined in the project for each plot. Does not state a specific foundation type (slab,
+    piles, stilts) as fact, nor that foundations are included in the listed price. Asks whether
+    they have land or offers the Treehouse team. European Portuguese.

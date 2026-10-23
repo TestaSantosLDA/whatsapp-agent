@@ -33,13 +33,16 @@ business_lines:
     name: Madeiras e Revestimentos
     description: >-
       Madeiras, pavimentos, decks, revestimentos, placas, portas e produtos de
-      manutenção. Venda pela loja online (loja.jular.pt) e nas lojas.
+      manutenção. Venda pela loja online (loja.jular.pt) e nas lojas. Nos decks, a
+      Jular fornece só o material e não faz a instalação (confirmado pela Jular,
+      2026-10-23).
   - id: engenharia-estruturas
     name: Engenharia e Estruturas
     description: >-
       Estruturas em madeira lamelada colada (glulam), LVL-Kerto, CLT e vigas em I
       (I-joist); pavilhões em Kerto com vãos até 40 m; coberturas. Venda
-      consultiva por projeto.
+      consultiva por projeto. Nos pavilhões, a Jular faz as duas coisas: constrói
+      o pavilhão completo ou fornece só a madeira (confirmado pela Jular, 2026-10-23).
   - id: casas-modulares
     name: Casas Modulares (Treehouse)
     description: >-
@@ -48,7 +51,9 @@ business_lines:
       Douro T2 (€148.743,90), IVA incluído. Processo em 6 passos: 1) estudo de
       viabilidade, 2) conceito/design, 3) projeto detalhado, 4) desenhos
       técnicos, 5) construção em fábrica + trabalhos de fundação no terreno,
-      6) transporte, montagem e acabamentos. Centro de exposição em Azambuja.
+      6) transporte, montagem e acabamentos. A Jular faz a obra toda, incluindo
+      as fundações no terreno (confirmado pela Jular, 2026-10-23). Centro de
+      exposição em Azambuja.
       TODO: o que está incluído no preço Treehouse (a confirmar com a Jular).
 
 # Hours: lists of "HH:MM-HH:MM" per weekday; a missing day means closed.
@@ -312,10 +317,11 @@ skills:
       - Models listed online, VAT included: *Treehouse Spot T1A* €54.413,97 · *Treehouse SW T2A* €90.412,38 · *Treehouse Douro T2* €148.743,90. If search_products returns a Treehouse product, prefer its price and link.
       - Built from 22 m² wooden modules, made in Jular's factory in Azambuja.
       - Process in 6 steps: 1) feasibility study, 2) concept and design, 3) detailed project, 4) technical drawings, 5) factory construction while the foundations are done on site, 6) transport, assembly and finishes.
+      - Jular does all of it, foundations included: the customer does not need a separate builder. The house sits on foundations made on the plot; the type of foundation is defined in the project for each plot.
       - Showroom (Centro de Exposição Treehouse) in Azambuja, at the HQ; see its opening hours above.
       - The 5% newsletter discount does not apply to modular houses.
 
-      Not known yet: what each price includes (foundations, transport, assembly, licensing, finishes, kitchen, bathroom), lead times, financing. When asked, say clearly that it is to be confirmed with the Treehouse team; never guess.
+      Not known yet: what each price includes (whether foundations, transport, assembly, licensing, finishes, kitchen or bathroom are in the listed price), lead times, financing. When asked, say clearly that it is to be confirmed with the Treehouse team; never guess.
 
       How to run the conversation:
       1. Answer the question first (for "quanto custa uma casa T2?", give the T2 models and prices above, and say that what is included is confirmed by the team).
