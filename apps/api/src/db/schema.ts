@@ -1,5 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   boolean,
   customType,
   index,
@@ -31,9 +32,16 @@ export const contacts = pgTable(
     consent: jsonb('consent').$type<Record<string, boolean>>().notNull().default({}),
     /** WA-028: the customer objected to profiling ("clear profile"); WA-027 must not build one. */
     profilingOptOut: boolean('profiling_opt_out').notNull().default(false),
+    /** WA-027: the customer record this number belongs to (one record can have several). */
+    customerId: uuid('customer_id').references((): AnyPgColumn => customers.id, {
+      onDelete: 'set null',
+    }),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('contacts_client_wa_id').on(t.clientId, t.waId)],
+  (t) => [
+    uniqueIndex('contacts_client_wa_id').on(t.clientId, t.waId),
+    index('contacts_customer').on(t.customerId),
+  ],
 );
 
 /** A thread with one contact. Only one conversation per contact is open (not closed) at a time. */
@@ -434,4 +442,78 @@ export const privacyAudit = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('privacy_audit_client_time').on(t.clientId, t.createdAt)],
+);
+
+// ---------- WA-027: customer records and profiles ----------
+
+/**
+ * A customer: a person or company with one or more WhatsApp numbers (contacts.customer_id).
+ * Created for every contact the first time it is needed; the team fills in the rest.
+ */
+export const customers = pgTable(
+  'customers',
+  {
+    id: id(),
+    clientId: clientId(),
+    /** As the team knows them; empty: the first contact's WhatsApp name is shown. */
+    name: text('name'),
+    company: text('company'),
+    nif: text('nif'),
+    role: text('role', {
+      enum: ['private', 'carpenter', 'builder', 'architect', 'reseller', 'other'],
+    }),
+    regions: text('regions').array().notNull().default([]),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('customers_client').on(t.clientId, t.createdAt)],
+);
+
+/** Free notes by the team on a customer record. */
+export const customerNotes = pgTable(
+  'customer_notes',
+  {
+    id: id(),
+    clientId: clientId(),
+    customerId: uuid('customer_id')
+      .notNull()
+      .references(() => customers.id, { onDelete: 'cascade' }),
+    authorMemberId: uuid('author_member_id').references(() => teamMembers.id, {
+      onDelete: 'set null',
+    }),
+    body: text('body').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('customer_notes_customer').on(t.customerId, t.createdAt)],
+);
+
+/**
+ * One profile field of a customer (packages/shared/src/customers.ts lists the allowed fields and
+ * values). Noted by the agent (note_profile) or set by the team; a field the team set or locked
+ * is never overwritten by the agent. Cleared by "clear profile" (WA-028).
+ */
+export const customerProfileFields = pgTable(
+  'customer_profile_fields',
+  {
+    id: id(),
+    clientId: clientId(),
+    customerId: uuid('customer_id')
+      .notNull()
+      .references(() => customers.id, { onDelete: 'cascade' }),
+    /** A ProfileField. */
+    field: text('field').notNull(),
+    /** Checked against the field's schema on every write; null for a field locked empty. */
+    value: jsonb('value'),
+    source: text('source', { enum: ['agent', 'team'] }).notNull(),
+    locked: boolean('locked').notNull().default(false),
+    /** The conversation the agent noted it in. */
+    conversationId: uuid('conversation_id').references(() => conversations.id, {
+      onDelete: 'set null',
+    }),
+    /** Why: the customer's own words, as the agent quoted them. */
+    evidence: text('evidence'),
+    updatedBy: uuid('updated_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('customer_profile_fields_field').on(t.customerId, t.field)],
 );

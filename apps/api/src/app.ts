@@ -51,6 +51,8 @@ import {
   type ProcessDocumentPayload,
 } from './knowledge/process.js';
 import { PrivacyService } from './privacy/service.js';
+import { customerSubject } from './customers/records.js';
+import { CustomersService } from './admin/customers/service.js';
 
 export interface AppDeps {
   env: Env;
@@ -172,7 +174,9 @@ export function createApp(deps: AppDeps) {
     dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}`,
   });
   // Privacy tools (WA-028). Features with customer data add handlers in privacy/handlers.ts.
-  const privacy = new PrivacyService({ db: deps.db, messages });
+  // WA-027: a customer is every number of their record.
+  const privacy = new PrivacyService({ db: deps.db, messages, subjects: customerSubject });
+  const customers = new CustomersService({ db: deps.db, privacy });
 
   const app = new Hono();
   if (deps.logRequests)
@@ -255,6 +259,7 @@ export function createApp(deps: AppDeps) {
       leads,
       knowledge,
       privacy,
+      customers,
       devSecret,
     }),
   );
@@ -277,6 +282,7 @@ export function createApp(deps: AppDeps) {
     knowledge,
     files,
     privacy,
+    customers,
   };
 }
 

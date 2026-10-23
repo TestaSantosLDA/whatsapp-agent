@@ -164,6 +164,11 @@ export const clientConfigSchema = z.object({
   privacy: z
     .object({ retention_months: z.number().int().min(1).max(120).default(24) })
     .prefault({}),
+  /**
+   * WA-027: the agent notes and uses customers' service preferences (note_profile). Off unless
+   * the client turns it on, because its privacy notice must mention it first.
+   */
+  profiling: z.object({ enabled: z.boolean().default(false) }).prefault({}),
   policies: z.record(z.string(), z.string()).default({}),
   product_data: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
   /** Client-specific conversation playbooks added to the system prompt (WA-017). */

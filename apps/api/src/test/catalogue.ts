@@ -66,6 +66,7 @@ export function toolContext(db: Db, client: ClientConfig = shopClient()): ToolCo
       language: null,
       consent: {},
       profilingOptOut: false,
+      customerId: null,
       createdAt: now,
     },
     conversation: {

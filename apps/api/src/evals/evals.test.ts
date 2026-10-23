@@ -2,6 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
+import { profileFields } from '@wa/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { agentTools } from '../agent/registry.js';
 import { syncCatalogue } from '../catalogue/sync.js';
@@ -29,9 +30,9 @@ const jular = parseClientConfig(readFileSync(jularPath, 'utf8'), jularPath);
 const set = loadEvalSet('jular');
 
 describe('the Jular eval set', () => {
-  it('has 36 to 46 valid cases covering every use case in both languages', () => {
+  it('has 36 to 48 valid cases covering every use case in both languages', () => {
     expect(set.cases.length).toBeGreaterThanOrEqual(36);
-    expect(set.cases.length).toBeLessThanOrEqual(46);
+    expect(set.cases.length).toBeLessThanOrEqual(48);
     for (const useCase of useCases) {
       const langs = new Set(set.cases.filter((c) => c.use_case === useCase).map((c) => c.language));
       expect([useCase, [...langs].sort()]).toEqual([useCase, ['en', 'pt-PT']]);
@@ -39,7 +40,13 @@ describe('the Jular eval set', () => {
   });
 
   it('only names real tools, branches, email kinds and valid patterns', () => {
-    const tools = new Set([...agentTools.map((t) => t.name), 'offer_choices', 'handoff_to_human']);
+    const tools = new Set([
+      ...agentTools.map((t) => t.name),
+      'offer_choices',
+      'handoff_to_human',
+      'request_data_deletion',
+      'note_profile',
+    ]);
     const branches = new Set(jular.branches.map((b) => b.id));
     for (const c of set.cases) {
       for (const t of [...c.checks.tools_called, ...c.checks.tools_not_called]) {
@@ -51,6 +58,8 @@ describe('the Jular eval set', () => {
       for (const kind of c.checks.emails)
         expect(['lead', 'handoff', 'order_draft']).toContain(kind);
       for (const n of c.checks.silent_turns) expect(n).toBeLessThanOrEqual(c.turns.length);
+      for (const f of c.checks.profile ?? []) expect(profileFields, c.id).toContain(f);
+      if (c.checks.shorter_than_earlier) expect(c.earlier?.length, c.id).toBeGreaterThan(0);
       expect(Number.isNaN(new Date(c.now).getTime()), c.id).toBe(false);
     }
   });
@@ -442,7 +451,13 @@ describe('cost estimate and reports', () => {
       cases: set.cases,
       graderModel: 'claude-opus-5-5',
     });
-    expect(opus.turns).toBe(set.cases.reduce((n, c) => n + c.turns.length, 0));
+    // Earlier conversations (WA-027) are played too, so they count.
+    expect(opus.turns).toBe(
+      set.cases.reduce(
+        (n, c) => n + c.turns.length + (c.earlier ?? []).reduce((m, e) => m + e.turns.length, 0),
+        0,
+      ),
+    );
     expect(opus.promptTokens).toBeGreaterThan(3000);
     expect(opus.agentUsd!).toBeGreaterThan(haiku.agentUsd! * 10);
     expect(opus.graderUsd).toBe(haiku.graderUsd);

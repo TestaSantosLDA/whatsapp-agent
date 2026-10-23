@@ -173,6 +173,10 @@ privacy_policy_url: https://jular.pt/politica-de-privacidade
 # WA-028: customers with no activity for this many months are deleted by a daily job.
 privacy:
   retention_months: 24
+# WA-027: the agent notes factual service preferences (detail level, usual products, delivery)
+# and adapts its replies. Jular's privacy notice must mention it; customers can object.
+profiling:
+  enabled: true
 
 # Agent tools (apps/api/src/agent/registry.ts). offer_choices, handoff_to_human and
 # request_data_deletion are always on.

@@ -10,6 +10,7 @@
 import type { Hono } from 'hono';
 import type { AdminEnv } from './context.js';
 import type { AdminDeps } from './deps.js';
+import { customersRoutes } from './customers/routes.js';
 import { leadsRoutes } from './leads/routes.js';
 import { knowledgeRoutes } from './knowledge/routes.js';
 import { privacyRoutes } from './privacy/routes.js';
@@ -28,7 +29,7 @@ export const adminFeatures: AdminFeature[] = [
   // WA-023 { path: '/inbox', routes: inboxRoutes },
   { path: '/leads', routes: leadsRoutes },
   { path: '/knowledge', routes: knowledgeRoutes },
-  // WA-027 { path: '/customers', routes: customersRoutes },
+  { path: '/customers', routes: customersRoutes },
   // WA-029 { path: '/overview', routes: overviewRoutes },
   { path: '/privacy', routes: privacyRoutes },
 ];

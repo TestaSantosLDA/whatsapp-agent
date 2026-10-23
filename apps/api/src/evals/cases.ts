@@ -17,6 +17,8 @@ export const useCases = [
   'handoff',
   'treehouse',
   'guardrails',
+  /** WA-027: a returning customer served from their profile. */
+  'profile',
 ] as const;
 export type UseCase = (typeof useCases)[number];
 
@@ -62,6 +64,13 @@ export const checksSchema = z
     emails: z.array(z.string()).default([]),
     /** 1-based turns that must get no reply (the bot is silent after a handoff). */
     silent_turns: z.array(z.number().int().positive()).default([]),
+    /** WA-027: these profile fields hold a value at the end (noted by the agent). */
+    profile: z.array(z.string()).optional(),
+    /**
+     * WA-027: the agent's replies in the main conversation are shorter on average than in the
+     * `earlier` conversations (the profile said "short answers").
+     */
+    shorter_than_earlier: z.boolean().optional(),
   })
   .strict();
 export type EvalChecks = z.infer<typeof checksSchema>;
@@ -78,6 +87,21 @@ export const evalCaseSchema = z
       .object({ name: z.string().min(1).max(60).default('Ana Costa') })
       .strict()
       .default({ name: 'Ana Costa' }),
+    /**
+     * WA-027: conversations the same customer had before, played first, each closed afterwards,
+     * so `turns` start a new conversation with whatever the agent learnt (profile, last orders).
+     */
+    earlier: z
+      .array(
+        z
+          .object({
+            now: z.iso.datetime({ offset: true }),
+            turns: z.array(turnSchema).min(1).max(8),
+          })
+          .strict(),
+      )
+      .max(3)
+      .optional(),
     turns: z.array(turnSchema).min(1).max(12),
     checks: checksSchema.default(checksSchema.parse({})),
     /** What the LLM grader judges: tone, helpfulness and the facts that need judgement. */

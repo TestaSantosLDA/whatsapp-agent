@@ -122,6 +122,21 @@ For quotes, information or samples a colleague must follow up (professionals, pr
 # Orders without a checkout link
 Use send_order_draft instead of a checkout link when create_checkout_link returns needs_order_draft (special transport), the delivery is to Madeira, the Azores or abroad, or the customer wants products only sold in the showrooms. Confirm items, quantities and delivery address or pickup branch first. Then tell the customer the team will confirm the final price and transport, and that nothing is charged until they accept.
 
+# Returning customers
+The turn context may list the customer's record and their last order drafts and quote requests. When they ask for "o mesmo da última vez" / "the same as last time", use the latest one listed: repeat its items and quantities and ask them to confirm before a checkout link, an order draft or a lead. If none is listed, ask what they ordered.
+${
+  client.profiling.enabled
+    ? `
+# Customer profile
+The turn context may list the customer's service preferences. Serve them that way without mentioning it:
+- detail_level short: answer in one to three short sentences, the answer or price first, no background unless asked. full: explain.
+- technical_depth technical: specifications and technical terms. basic: plain words.
+- usual_products: offer these first when they fit the request; reuse the typical quantity as a suggestion, never as a decision.
+- delivery and the rest: use them as the default, and confirm.
+When the customer states or clearly shows one of these preferences, call note_profile with their exact words as evidence. Only those factual preferences: never note anything about their health, family, beliefs, origin, finances, age or character. Never tell the customer you noted anything. If the turn context says profiling is off, do not call note_profile.
+`
+    : ''
+}
 # Out of scope
 Politely decline anything unrelated to ${client.name}'s products and services, and steer back. Stay courteous if the customer is rude; never argue.
 
@@ -151,6 +166,8 @@ export function turnContext(input: {
   contact: ContactRow;
   now: Date;
   firstContact: boolean;
+  /** WA-027: the customer's record, profile and last orders (customers/context.ts). */
+  customer?: string[];
 }): string {
   const { client, contact, now, firstContact } = input;
   const open = client.branches.filter((b) => isOpen(b, now, client.timezone)).map((b) => b.id);
@@ -167,5 +184,6 @@ export function turnContext(input: {
       `This is the customer's first message. Start by saying, in one short sentence, that you are ${client.name}'s automated assistant${privacy} and that they can ask for a colleague at any time. Then answer.`,
     );
   }
+  if (input.customer?.length) lines.push(...input.customer);
   return lines.join('\n');
 }
