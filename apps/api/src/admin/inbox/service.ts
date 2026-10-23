@@ -458,6 +458,7 @@ export class InboxService {
           type: messages.type,
           createdAt: messages.createdAt,
           sentByMemberId: messages.sentByMemberId,
+          fileName: sql<string | null>`${messages.payload}->'document'->>'filename'`,
         })
         .from(messages)
         .where(inArray(messages.conversationId, ids))
@@ -494,7 +495,7 @@ export class InboxService {
         lastMessage: m
           ? {
               direction: m.direction,
-              text: (m.text ?? '').trim() || `[${m.type}]`,
+              text: previewText(m),
               at: m.createdAt.toISOString(),
               byMember: m.sentByMemberId !== null,
             }
@@ -503,6 +504,12 @@ export class InboxService {
       };
     });
   }
+}
+
+/** A list row's last message: a document (WA-025 quote PDFs) by its file name. */
+export function previewText(m: { type: string; text: string | null; fileName: string | null }) {
+  if (m.type === 'document') return `Documento: ${m.fileName?.trim() || 'ficheiro'}`;
+  return (m.text ?? '').trim() || `[${m.type}]`;
 }
 
 const isUuid = (id: string) =>

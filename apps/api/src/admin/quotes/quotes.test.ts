@@ -4,6 +4,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import type {
   AdminLeadDetail,
   ClientConfig,
+  InboxConversationDetail,
+  InboxList,
   MetaSendMessage,
   QuoteDetail,
   QuoteDraftInput,
@@ -710,6 +712,22 @@ describe('a demo deck lead, end to end', () => {
       `Orçamento ${q.number} da Acme Madeiras, Lda.: 1 940,76 € com IVA, válido até ${q.validUntil.split('-').reverse().join('/')}.`,
     );
     expect(events).toContainEqual(expect.objectContaining({ type: 'message' }));
+    // The inbox shows it as a document sent by the member, with its file name in the list.
+    await t.inbox.flush();
+    const inbox = await t.json<InboxList>(t.call('/api/admin/clients/acme/inbox', t.admin.token));
+    const row = inbox.conversations.find((c) => c.contact.phone === phone)!;
+    expect(row.lastMessage).toMatchObject({
+      direction: 'outbound',
+      text: `Documento: Orcamento-${q.number}.pdf`,
+      byMember: true,
+    });
+    const detail = await t.json<InboxConversationDetail>(
+      t.call(`/api/admin/clients/acme/inbox/${row.id}`, t.admin.token),
+    );
+    expect(detail.messages.at(-1)).toMatchObject({
+      type: 'document',
+      sentBy: expect.objectContaining({ name: 'Rita Lopes' }),
+    });
     // WhatsApp (or the simulator) downloads the PDF from the public link.
     const link = new URL(payload.document.link);
     expect(link.origin).toBe('http://test.local');

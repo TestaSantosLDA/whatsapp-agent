@@ -292,4 +292,42 @@ describe('toInboxMessageView', () => {
       options: [{ id: 'product:42', title: 'Quero este' }],
     });
   });
+
+  it('shows a document (a quote PDF) with its file name and link', () => {
+    const doc = msg({
+      direction: 'outbound',
+      type: 'document',
+      text: 'Orçamento ACME-2026-0001',
+      payload: {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: '1',
+        type: 'document',
+        document: {
+          link: 'https://x.test/static/quotes/tok/Orcamento-ACME-2026-0001.pdf',
+          filename: 'Orcamento-ACME-2026-0001.pdf',
+          caption: 'Orçamento ACME-2026-0001',
+        },
+      },
+    });
+    expect(toInboxMessageView(doc)).toMatchObject({
+      kind: 'document',
+      documentUrl: 'https://x.test/static/quotes/tok/Orcamento-ACME-2026-0001.pdf',
+      fileName: 'Orcamento-ACME-2026-0001.pdf',
+      fileType: 'PDF',
+      text: 'Orçamento ACME-2026-0001',
+    });
+    const noName = msg({
+      direction: 'outbound',
+      type: 'document',
+      payload: {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: '1',
+        type: 'document',
+        document: { link: 'https://x.test/static/quotes/tok/Or%C3%A7amento.pdf' },
+      },
+    });
+    expect(toInboxMessageView(noName)).toMatchObject({ fileName: 'Orçamento.pdf', text: '' });
+  });
 });

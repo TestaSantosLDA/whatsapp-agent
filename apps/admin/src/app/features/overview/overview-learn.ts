@@ -47,6 +47,7 @@ const DAYS = 30;
                     <li>
                       <q class="gap__q">{{ e.question }}</q>
                       <span class="small muted"> · {{ day(e.at) }}</span>
+                      <a class="small" [routerLink]="['/inbox', e.conversationId]">Ver conversa</a>
                       @if (e.reply) {
                         <span class="gap__reply small muted">Assistente: {{ e.reply }}</span>
                       }

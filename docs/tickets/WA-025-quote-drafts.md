@@ -60,3 +60,4 @@ Needs from Jular: letterhead, legal footer, quote conditions, numbering preferen
 - The agent telling a customer about their quote: a quote sent by WhatsApp is in the conversation history (the document's caption), so the agent sees it; a quote sent only by email is not. A small `quote_status` tool reading `quotes` by contact would cover both.
 - Sent quotes are locked; changing one means a new quote (new number). No versions ("rev. 2") yet.
 - On real WhatsApp (WA-030), sending a document outside the 24-hour window needs a template.
+- After the M5 merges: a quote sent by WhatsApp is stored with `sent_by_member_id` (the inbox shows who sent it, the agent's history marks it as a colleague's message, and it counts as the team's first response in the overview); the overview's `quotesSent` counts sent quotes.

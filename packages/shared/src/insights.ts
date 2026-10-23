@@ -38,23 +38,20 @@ export interface OverviewFigures {
   handoffsByReason: OverviewCount[];
   /** Leads that moved to `quoted` in the period (the pipeline status, WA-024). */
   quoted: number;
-  /**
-   * Quotes actually sent from the dashboard. TODO(WA-025): null until quote drafts exist; then
-   * count the sent quotes of the period.
-   */
-  quotesSent: number | null;
+  /** Quotes sent from the dashboard (WA-025) in the period, counted once, on their first send. */
+  quotesSent: number;
   /** Leads closed in the period. */
   won: number;
   lost: number;
   lostByReason: OverviewCount<LostReason>[];
   /**
-   * The team's first response to the leads saved in the period: from saved to first leaving
-   * `new` (WA-024's `contacted_at`). TODO(WA-023): also the first reply sent from the inbox.
+   * The team's first response to the leads saved in the period: from saved to whichever comes
+   * first, leaving `new` (WA-024's `contacted_at`) or a reply sent from the inbox (WA-023).
    */
   firstResponse: {
     /** Leads that have had a first response. */
     answered: number;
-    /** Leads of the period still waiting (status `new`). */
+    /** Leads of the period still waiting (status `new`, no inbox reply yet). */
     waiting: number;
     medianMinutes: number | null;
     /** The same, counting only the branch's opening hours (like the no-reply reminders). */

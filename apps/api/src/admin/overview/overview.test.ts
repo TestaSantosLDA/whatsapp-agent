@@ -9,7 +9,7 @@ import type {
 import { and, eq, gte, isNotNull, lt, ne, sql } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClaudeResponder, type ToolCallRecord } from '../../agent/claude-responder.js';
-import { agentRuns, leads, messages, outbox } from '../../db/schema.js';
+import { agentRuns, leads, messages, outbox, quotes } from '../../db/schema.js';
 import type { Responder } from '../../jobs/process-conversation.js';
 import { adminTestApp } from '../../test/admin.js';
 import { seedCatalogue, shopClient, V } from '../../test/catalogue.js';
@@ -297,7 +297,7 @@ describe('overview after a demo run', () => {
       expect(period.won).toBe(1);
       expect(period.lost).toBe(0);
       expect(period.quoted).toBe(0);
-      expect(period.quotesSent).toBeNull();
+      expect(period.quotesSent).toBe(0);
       expect(period.firstResponse).toMatchObject({ answered: 1, medianMinutes: 90 });
       // Wednesday 11:0x to 12:3x, all inside opening hours.
       expect(period.firstResponse.medianWorkingMinutes).toBe(90);
@@ -329,6 +329,65 @@ describe('overview after a demo run', () => {
     const later = await json<OverviewView>(t.call('/api/admin/clients/acme/overview', fresh.token));
     expect(later.week).toMatchObject({ conversations: 0, leads: 0, handoffs: 0, won: 0 });
     expect(later.month).toMatchObject({ conversations: 4, leads: 1, handoffs: 2, won: 1 });
+  });
+
+  it("counts quotes sent and the team's inbox replies, which are never gaps", async () => {
+    const { t, admin, lisboa, porto, json } = await playDemo();
+    const [asked] = await t.db
+      .select()
+      .from(leads)
+      .where(sql`${leads.fields}->>'reason' = 'customer_asked'`);
+    // Lisboa replies from the inbox 30 minutes after the handoff, in words that sound like the
+    // agent deferring; the lead itself stays `new`.
+    vi.setSystemTime(new Date(asked!.createdAt.getTime() + 30 * 60_000));
+    const reply = await t.call(
+      `/api/admin/clients/acme/inbox/${asked!.conversationId}/reply`,
+      lisboa.token,
+      {
+        method: 'POST',
+        body: JSON.stringify({ text: 'Bom dia! Vou confirmar com um colega e já lhe digo.' }),
+      },
+    );
+    expect(reply.status).toBe(201);
+    // Quotes: two sent this week (Lisboa, Porto), a draft, and one sent last month.
+    const now = new Date();
+    const quote = (n: string, o: Partial<typeof quotes.$inferInsert>) => ({
+      clientId: 'acme',
+      number: `ACME-2026-${n}`,
+      validUntil: '2026-12-31',
+      ...o,
+    });
+    await t.db.insert(quotes).values([
+      quote('0001', { status: 'sent', sentAt: now, branchId: 'lisboa' }),
+      quote('0002', { status: 'sent', sentAt: now, branchId: 'porto' }),
+      quote('0003', { status: 'draft', branchId: 'lisboa' }),
+      quote('0004', {
+        status: 'sent',
+        sentAt: new Date('2026-09-15T10:00:00Z'),
+        branchId: 'lisboa',
+      }),
+    ]);
+    vi.setSystemTime(new Date(Date.now() + 60_000));
+
+    const view = await json<OverviewView>(t.call('/api/admin/clients/acme/overview', admin.token));
+    for (const period of [view.week, view.month]) {
+      expect(period.quotesSent).toBe(2);
+      // The handoff answered from the inbox; the other handoff and the quote request still wait.
+      expect(period.firstResponse).toMatchObject({ answered: 1, waiting: 2, medianMinutes: 30 });
+    }
+    const mine = await json<OverviewView>(t.call('/api/admin/clients/acme/overview', lisboa.token));
+    expect(mine.week.quotesSent).toBe(1);
+    const theirs = await json<OverviewView>(
+      t.call('/api/admin/clients/acme/overview', porto.token),
+    );
+    expect(theirs.week).toMatchObject({ quotesSent: 1, firstResponse: { answered: 0 } });
+
+    // The person's "vou confirmar com um colega" is not the agent deferring.
+    const gaps = await json<GapsView>(t.call('/api/admin/clients/acme/overview/gaps', admin.token));
+    expect(gaps.topics.flatMap((g) => g.examples.map((e) => e.question))).not.toContain(
+      'Queria falar com uma pessoa',
+    );
+    expect(gaps.total).toBe(2);
   });
 
   it('lists what the agent could not answer, grouped by topic, and dismisses a topic', async () => {

@@ -25,7 +25,7 @@ const figures = (o: Partial<OverviewFigures> = {}): OverviewFigures => ({
     { key: 'customer_asked', label: 'O cliente pediu uma pessoa', count: 1 },
   ],
   quoted: 0,
-  quotesSent: null,
+  quotesSent: 1,
   won: 1,
   lost: 0,
   lostByReason: [],
@@ -167,6 +167,7 @@ describe('overview screen', () => {
       '1.ª resposta da equipa': '1 h 30 min',
     });
     expect(tiles(el)['Custo do Claude']).toContain('0,14');
+    expect(el.textContent).toContain('1 orçamento enviado');
     expect(el.querySelectorAll('.ov-table tbody tr')).toHaveLength(2);
 
     const month = [...el.querySelectorAll<HTMLButtonElement>('.seg button')].find((b) =>
@@ -190,8 +191,10 @@ describe('overview screen', () => {
     const topics = [...el.querySelectorAll('.gap__topic')].map((t) => t.textContent?.trim());
     expect(topics).toEqual(['Deck', 'Outros']);
     expect(el.textContent).toContain('Vendem telhas cerâmicas?');
+    const links = [...el.querySelectorAll<HTMLAnchorElement>('.gap__examples a')];
+    expect(links.map((a) => a.getAttribute('href'))).toContain('/inbox/c1');
     expect(el.textContent).toContain('Assistente: Vou confirmar com um colega.');
-    expect(el.querySelector('.gap a')?.getAttribute('href')).toBe('/knowledge');
+    expect(el.querySelector('.gap__actions a')?.getAttribute('href')).toBe('/knowledge');
     expect(el.textContent).toContain('Deck de Ipê 21 mm');
     expect(el.textContent).toContain('telha cerâmica');
 

@@ -117,7 +117,7 @@ export function weeklyEmail(
       `${f.leads}${f.leadsByType.length ? ` (${f.leadsByType.map((t) => `${t.label} ${t.count}`).join(', ')})` : ''}`,
     ],
     ['Passagens para a equipa', String(f.handoffs)],
-    ['Orçamentados', String(f.quoted)],
+    ['Orçamentados', `${f.quoted} · ${f.quotesSent} orçamentos enviados`],
     ['Ganhos / perdidos', `${f.won} / ${f.lost}`],
     [
       'Primeira resposta (mediana)',

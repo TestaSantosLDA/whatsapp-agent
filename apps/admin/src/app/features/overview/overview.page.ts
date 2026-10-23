@@ -289,8 +289,7 @@ export class OverviewPage {
       {
         label: 'Orçamentados',
         value: String(f.quoted),
-        // TODO(WA-025): quotes sent from the dashboard.
-        sub: f.quotesSent === null ? undefined : `${f.quotesSent} orçamentos enviados`,
+        sub: `${f.quotesSent} ${f.quotesSent === 1 ? 'orçamento enviado' : 'orçamentos enviados'}`,
       },
       { label: 'Ganhos', value: String(f.won) },
       { label: 'Perdidos', value: String(f.lost) },

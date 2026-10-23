@@ -135,6 +135,12 @@ const FIELD_LABELS: Record<string, string> = {
                       <img [src]="m.imageUrl" alt="Imagem enviada" loading="lazy" />
                     </a>
                   }
+                  @if (m.documentUrl) {
+                    <a class="msg__doc" [href]="m.documentUrl" target="_blank" rel="noopener">
+                      <span class="msg__doc-icon" aria-hidden="true">{{ m.fileType }}</span>
+                      <span class="msg__doc-name">{{ m.fileName }}</span>
+                    </a>
+                  }
                   @if (m.kind === 'tap') {
                     <div class="msg__tap">Tocou em «{{ m.text }}»</div>
                   } @else if (m.kind === 'media') {

@@ -40,5 +40,5 @@ Canned replies, internal chat between colleagues, the 24-hour WhatsApp window ru
 
 - Web push (PWA) not done: alerts are email only.
 - The customer's record and profile beside the conversation is WA-027's; the view shows name, phone, branch and leads for now.
-- Inbound images show as "Enviou uma imagem" (no media download yet).
+- Inbound images show as "Enviou uma imagem" (no media download yet). Outbound documents (WA-025 quote PDFs) show as a file card (type badge, file name linking to the PDF, caption) in the transcript and as "Documento: <file>" in the list; inbound documents from customers still fall back to their text.
 - No nav badge for waiting conversations (would touch the shared shell).

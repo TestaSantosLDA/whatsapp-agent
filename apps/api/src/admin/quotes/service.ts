@@ -288,14 +288,21 @@ export class QuotesService {
     if (body.channel === 'whatsapp') {
       const base = this.deps.publicBaseUrl.replace(/\/+$/, '');
       try {
-        await this.deps.messages.send(client, row.conversationId!, waId!, {
-          type: 'document',
-          url: `${base}/static/quotes/${row.publicToken}/${pdf.filename}`,
-          filename: pdf.filename,
-          caption:
-            body.message ||
-            `Orçamento ${row.number} da ${company}: ${formatCents(totalCents)} com IVA, válido até ${ptDate(row.validUntil)}.`,
-        });
+        await this.deps.messages.send(
+          client,
+          row.conversationId!,
+          waId!,
+          {
+            type: 'document',
+            url: `${base}/static/quotes/${row.publicToken}/${pdf.filename}`,
+            filename: pdf.filename,
+            caption:
+              body.message ||
+              `Orçamento ${row.number} da ${company}: ${formatCents(totalCents)} com IVA, válido até ${ptDate(row.validUntil)}.`,
+          },
+          // A person sent it: the inbox shows who, and the agent's history marks it (WA-023).
+          { sentByMemberId: ctx.member.id },
+        );
       } catch (error) {
         console.error(`[quotes] could not send ${row.number} by WhatsApp`, error);
         throw adminError(

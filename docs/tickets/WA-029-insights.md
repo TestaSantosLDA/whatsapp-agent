@@ -45,8 +45,7 @@ Everything is computed from data that already exists; no new event logging in th
 
 ### Open items
 
-- TODO(WA-025): `quotesSent` is `null` until quote drafts exist; then count quotes sent in the period (the tile already shows it when not null). Today "Orçamentados" counts leads moved to `quoted`.
-- TODO(WA-023): the first response only uses the lead's `contacted_at`; add the first reply a member sends from the inbox (handoffs especially). Once inbox replies are stored as outbound messages marked as sent by a member, leave them out of the deferral scan (`gapEvents` in `service.ts`), or a person writing "vou confirmar com um colega" would count as the agent deferring. Example links to `/inbox/<conversationId>` can be added then (`conversationId` is already in the API).
+- Done after the M5 merges: `quotesSent` counts `quotes` with status `sent` and `sent_at` in the period (first send only; branch-scoped by `quotes.branch_id`, so for a branch view quotes without a branch are left out), shown under "Orçamentados" and in the Monday email; the first response is now the earlier of the lead leaving `new` and the first inbox reply by a member (`messages.sent_by_member_id`) after the lead was saved, and a lead with such a reply no longer counts as waiting; member-sent messages are left out of the deferral scan; gap examples link to `/inbox/<conversationId>` ("Ver conversa").
 - Topics are keyword-based; a Claude clustering pass (e.g. in the weekly job) could name finer topics later.
 - Run the real eval set (`pnpm eval --client jular`) with an API key and check the overview against that run.
 - Cost is in USD (as stored); no currency conversion.

@@ -9,11 +9,16 @@ export interface InboxMessageView {
   author: string | null;
   byMember: boolean;
   at: string;
-  kind: 'text' | 'image' | 'buttons' | 'list' | 'tap' | 'media' | 'unknown';
+  kind: 'text' | 'image' | 'document' | 'buttons' | 'list' | 'tap' | 'media' | 'unknown';
   text: string;
   header?: string;
   footer?: string;
   imageUrl?: string;
+  /** A document sent to the customer (WA-025 quote PDFs): its link and file name. */
+  documentUrl?: string;
+  fileName?: string;
+  /** "PDF", "XLSX"…, for the file badge. */
+  fileType?: string;
   /** Reply buttons or list rows the agent offered. */
   options?: { id: string; title: string; description?: string }[];
   listButton?: string;
@@ -43,6 +48,19 @@ export function toInboxMessageView(m: InboxMessage): InboxMessageView {
       return { ...out, kind: 'text', text: p.text.body };
     case 'image':
       return { ...out, kind: 'image', imageUrl: p.image.link, text: p.image.caption ?? '' };
+    case 'document': {
+      const d = p.document;
+      const fileName = d.filename || fileNameOf(d.link);
+      const ext = /\.([a-z0-9]{1,5})$/i.exec(fileName)?.[1];
+      return {
+        ...out,
+        kind: 'document',
+        documentUrl: d.link,
+        fileName,
+        fileType: ext ? ext.toUpperCase() : 'DOC',
+        text: d.caption ?? '',
+      };
+    }
     case 'interactive': {
       const i = p.interactive;
       const common = { header: i.header?.text, text: i.body.text, footer: i.footer?.text };
@@ -66,5 +84,15 @@ export function toInboxMessageView(m: InboxMessage): InboxMessageView {
     }
     default:
       return { ...out, kind: 'unknown', text: m.text };
+  }
+}
+
+/** The last path segment of a link, decoded ("orcamento.pdf"). */
+function fileNameOf(link: string): string {
+  try {
+    const last = new URL(link).pathname.split('/').filter(Boolean).at(-1);
+    return last ? decodeURIComponent(last) : 'Documento';
+  } catch {
+    return 'Documento';
   }
 }

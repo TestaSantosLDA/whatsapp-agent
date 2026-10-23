@@ -1,7 +1,8 @@
 /**
  * Overview and "couldn't answer" list (WA-029), computed from what is already stored:
  * conversations and messages, leads with their status dates (WA-024), the agent's turns and
- * their tool calls and cost (`agent_runs`), and document reading cost (WA-026).
+ * their tool calls and cost (`agent_runs`), document reading cost (WA-026), quotes sent (WA-025)
+ * and the team's replies from the inbox (WA-023).
  */
 import {
   handoffReasonLabels,
@@ -48,6 +49,7 @@ import {
   leads,
   messages,
   products,
+  quotes,
 } from '../../db/schema.js';
 import { adminError, assertBranch, isAdmin, type AdminContext } from '../context.js';
 import {
@@ -82,6 +84,7 @@ interface Range {
 
 type LeadFact = {
   type: string;
+  conversationId: string | null;
   branchId: string | null;
   status: string;
   lostReason: string | null;
@@ -247,13 +250,23 @@ export class InsightsService {
     const closed = facts.filter((f) => within(f.closedAt, range));
     const lost = closed.filter((f) => f.status === 'lost');
 
-    const answered = created.filter((f) => f.contactedAt);
-    const minutes = answered.map((f) => (f.contactedAt!.getTime() - f.createdAt.getTime()) / 60000);
-    const working = answered.flatMap((f) => {
+    // First response: the lead leaving `new`, or the first inbox reply after it, if earlier.
+    const replies = await this.memberReplies(created);
+    const responded = created.flatMap((f) => {
+      const reply = f.conversationId
+        ? replies.get(f.conversationId)?.find((at) => at.getTime() >= f.createdAt.getTime())
+        : undefined;
+      const at =
+        f.contactedAt && reply
+          ? new Date(Math.min(f.contactedAt.getTime(), reply.getTime()))
+          : (f.contactedAt ?? reply);
+      return at ? [{ fact: f, at }] : [];
+    });
+    const answered = new Set(responded.map((r) => r.fact));
+    const minutes = responded.map((r) => (r.at.getTime() - r.fact.createdAt.getTime()) / 60000);
+    const working = responded.flatMap(({ fact: f, at }) => {
       const branch = client.branches.find((b) => b.id === f.branchId);
-      return branch
-        ? [workingHoursBetween(branch, f.createdAt, f.contactedAt!, client.timezone) * 60]
-        : [];
+      return branch ? [workingHoursBetween(branch, f.createdAt, at, client.timezone) * 60] : [];
     });
     const round = (v: number | null) => (v === null ? null : Math.round(v));
 
@@ -272,8 +285,7 @@ export class InsightsService {
         (k) => handoffReasonLabels[k] ?? k,
       ),
       quoted: facts.filter((f) => within(f.quotedAt, range)).length,
-      // TODO(WA-025): count the quotes sent in the period once quote drafts exist.
-      quotesSent: null,
+      quotesSent: await this.quotesSent(scope, range),
       won: closed.filter((f) => f.status === 'won').length,
       lost: lost.length,
       lostByReason: counted(
@@ -281,10 +293,10 @@ export class InsightsService {
         (k) => lostReasonLabels[k] ?? k,
         lostReasons,
       ),
-      // TODO(WA-023): include the first reply a member sends from the inbox (handoffs).
       firstResponse: {
-        answered: answered.length,
-        waiting: created.filter((f) => f.status === 'new').length,
+        answered: responded.length,
+        // Still `new` and nobody has replied from the inbox either.
+        waiting: created.filter((f) => f.status === 'new' && !answered.has(f)).length,
         medianMinutes: round(median(minutes)),
         medianWorkingMinutes: round(median(working)),
       },
@@ -304,6 +316,7 @@ export class InsightsService {
     return this.deps.db
       .select({
         type: leads.type,
+        conversationId: leads.conversationId,
         branchId: leads.branchId,
         status: leads.status,
         lostReason: leads.lostReason,
@@ -321,6 +334,51 @@ export class InsightsService {
           or(inRange(leads.createdAt), inRange(leads.quotedAt), inRange(leads.closedAt)),
         ),
       );
+  }
+
+  /** Quotes sent (first sent, WA-025) in the range; a branch's are the quotes of that branch. */
+  private async quotesSent(scope: InsightsScope, r: Range): Promise<number> {
+    if (scope.branchIds?.length === 0) return 0;
+    const [row] = await this.deps.db
+      .select({ n: count() })
+      .from(quotes)
+      .where(
+        and(
+          eq(quotes.clientId, scope.client.id),
+          eq(quotes.status, 'sent'),
+          gte(quotes.sentAt, r.from),
+          lt(quotes.sentAt, r.to),
+          scope.branchIds && inArray(quotes.branchId, scope.branchIds),
+        ),
+      );
+    return Number(row?.n ?? 0);
+  }
+
+  /**
+   * When team members replied from the inbox (WA-023) in the leads' conversations, from the
+   * first lead's creation on, oldest first, by conversation.
+   */
+  private async memberReplies(facts: LeadFact[]): Promise<Map<string, Date[]>> {
+    const ids = [...new Set(facts.flatMap((f) => (f.conversationId ? [f.conversationId] : [])))];
+    const replies = new Map<string, Date[]>();
+    if (ids.length === 0) return replies;
+    const since = new Date(Math.min(...facts.map((f) => f.createdAt.getTime())));
+    const rows = await this.deps.db
+      .select({ conversationId: messages.conversationId, createdAt: messages.createdAt })
+      .from(messages)
+      .where(
+        and(
+          inArray(messages.conversationId, ids),
+          eq(messages.direction, 'outbound'),
+          isNotNull(messages.sentByMemberId),
+          gte(messages.createdAt, since),
+        ),
+      )
+      .orderBy(asc(messages.createdAt));
+    for (const m of rows) {
+      replies.set(m.conversationId, [...(replies.get(m.conversationId) ?? []), m.createdAt]);
+    }
+    return replies;
   }
 
   /**
@@ -547,7 +605,7 @@ export class InsightsService {
   /** Signs that the agent could not answer, in the range. */
   private async gapEvents(clientId: string, r: Range): Promise<GapEvent[]> {
     const events: GapEvent[] = [];
-    // TODO(WA-023): leave out messages a team member sent from the inbox once they are marked.
+    // The agent's replies only: a person writing "vou confirmar com um colega" is not a gap.
     const deferrals = await this.deps.db
       .select({
         conversationId: messages.conversationId,
@@ -559,6 +617,7 @@ export class InsightsService {
         and(
           eq(messages.clientId, clientId),
           eq(messages.direction, 'outbound'),
+          isNull(messages.sentByMemberId),
           gte(messages.createdAt, r.from),
           lt(messages.createdAt, r.to),
           sql`${messages.text} ~* '(colega|colleague|compa|coll|equipa|team)'`,
