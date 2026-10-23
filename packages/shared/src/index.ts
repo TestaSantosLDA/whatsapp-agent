@@ -9,3 +9,4 @@ export * from './knowledge.js';
 export * from './privacy.js';
 export * from './inbox.js';
 export * from './quotes.js';
+export * from './insights.js';

@@ -7,7 +7,13 @@ import type { BackofficeService } from '../services/backoffice.js';
 
 /** `inbox_alert`: a customer waiting in the dashboard inbox (WA-023). */
 export type EmailKind =
-  'lead' | 'handoff' | 'order_draft' | 'lead_reminder' | 'inbox_alert' | 'quote';
+  | 'lead'
+  | 'handoff'
+  | 'order_draft'
+  | 'lead_reminder'
+  | 'inbox_alert'
+  | 'quote'
+  | 'weekly_insights';
 
 /** A file sent with an email (WA-025: the quote PDF). Not stored in the outbox. */
 export interface EmailAttachment {

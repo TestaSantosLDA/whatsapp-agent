@@ -10,6 +10,7 @@ import type { Db } from '../db/index.js';
 import type { Env } from '../env.js';
 import type { LeadReminders } from '../leads/reminders.js';
 import type { PrivacyService } from '../privacy/service.js';
+import type { WeeklyInsights } from '../admin/overview/weekly.js';
 import type { RunResult } from '../queue/cloud-tasks.js';
 
 /**
@@ -28,6 +29,8 @@ export function jobsRoutes(deps: {
   runJob?: (name: string, payload: unknown, retryCount: number) => Promise<RunResult>;
   /** WA-024: no-reply reminders for leads. */
   leadReminders?: LeadReminders;
+  /** WA-029: the Monday email to admins. */
+  weeklyInsights?: Pick<WeeklyInsights, 'run'>;
 }) {
   const app = new Hono();
 
@@ -69,6 +72,15 @@ export function jobsRoutes(deps: {
   app.post('/lead-reminders', async (c) => {
     if (!deps.leadReminders) return c.text('Lead reminders not configured', 404);
     return c.json(await deps.leadReminders.run());
+  });
+
+  // Mondays (WA-029): last week's overview and top "couldn't answer" topics to each client's
+  // admins. Sent once per client and week, however often it runs. `?client=<id>` runs one client.
+  app.post('/weekly-insights', async (c) => {
+    if (!deps.weeklyInsights) return c.text('Weekly insights not configured', 404);
+    const id = c.req.query('client');
+    if (id && !deps.clients.get(id)) return c.json({ error: `unknown client "${id}"` }, 404);
+    return c.json({ results: await deps.weeklyInsights.run(new Date(), id) });
   });
 
   // Daily privacy retention (WA-028): deletes contacts with no activity for longer than the

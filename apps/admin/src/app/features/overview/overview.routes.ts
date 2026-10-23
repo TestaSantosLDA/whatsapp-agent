@@ -1,16 +1,13 @@
 import type { Routes } from '@angular/router';
-import { ComingSoon } from '../../shared/coming-soon';
 
-/** Resumo (WA-029): placeholder until the ticket replaces it with its own screens. */
+/**
+ * Resumo (WA-029): this week's and month's figures per branch for everyone (scoped by the API);
+ * the "couldn't answer" list for admins; most asked products and searches with no result.
+ */
 export const routes: Routes = [
   {
     path: '',
-    component: ComingSoon,
     title: 'Resumo',
-    data: {
-      title: 'Resumo',
-      ticket: 'WA-029',
-      text: 'Os números da semana e do mês por filial, e as perguntas a que o assistente não soube responder.',
-    },
+    loadComponent: () => import('./overview.page').then((m) => m.OverviewPage),
   },
 ];

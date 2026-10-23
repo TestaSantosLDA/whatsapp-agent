@@ -28,6 +28,22 @@ CREATE TABLE "documents" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "insight_gap_dismissals" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"client_id" text NOT NULL,
+	"topic" text NOT NULL,
+	"dismissed_by" uuid,
+	"dismissed_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "insight_reports" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"client_id" text NOT NULL,
+	"week_start" text NOT NULL,
+	"recipients" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "lead_events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"client_id" text NOT NULL,
@@ -157,6 +173,7 @@ ALTER TABLE "leads" ADD COLUMN "admin_reminded_at" timestamp with time zone;--> 
 ALTER TABLE "messages" ADD COLUMN "sent_by_member_id" uuid;--> statement-breakpoint
 ALTER TABLE "document_passages" ADD CONSTRAINT "document_passages_document_id_documents_id_fk" FOREIGN KEY ("document_id") REFERENCES "public"."documents"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "documents" ADD CONSTRAINT "documents_uploaded_by_team_members_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "insight_gap_dismissals" ADD CONSTRAINT "insight_gap_dismissals_dismissed_by_team_members_id_fk" FOREIGN KEY ("dismissed_by") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "lead_events" ADD CONSTRAINT "lead_events_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."leads"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "lead_events" ADD CONSTRAINT "lead_events_actor_member_id_team_members_id_fk" FOREIGN KEY ("actor_member_id") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "lead_notes" ADD CONSTRAINT "lead_notes_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."leads"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -177,6 +194,8 @@ ALTER TABLE "quotes" ADD CONSTRAINT "quotes_updated_by_team_members_id_fk" FOREI
 CREATE INDEX "document_passages_document" ON "document_passages" USING btree ("document_id","page");--> statement-breakpoint
 CREATE INDEX "document_passages_search" ON "document_passages" USING gin ("search_vector");--> statement-breakpoint
 CREATE INDEX "documents_client" ON "documents" USING btree ("client_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "insight_gap_dismissals_topic" ON "insight_gap_dismissals" USING btree ("client_id","topic");--> statement-breakpoint
+CREATE UNIQUE INDEX "insight_reports_week" ON "insight_reports" USING btree ("client_id","week_start");--> statement-breakpoint
 CREATE INDEX "lead_events_lead" ON "lead_events" USING btree ("lead_id","created_at");--> statement-breakpoint
 CREATE INDEX "lead_notes_lead" ON "lead_notes" USING btree ("lead_id","created_at");--> statement-breakpoint
 CREATE INDEX "privacy_audit_client_time" ON "privacy_audit" USING btree ("client_id","created_at");--> statement-breakpoint
