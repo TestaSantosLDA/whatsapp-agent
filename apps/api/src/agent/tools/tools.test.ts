@@ -17,7 +17,7 @@ import { ToolError, type AgentTool } from '../tool.js';
 import { createCheckoutLinkTool } from './create-checkout-link.js';
 import { getProductTool } from './get-product.js';
 import { searchProductsTool } from './search-products.js';
-import { showProductsTool } from './show-products.js';
+import { distinctNames, showProductsTool } from './show-products.js';
 
 let handle: DbHandle;
 beforeAll(async () => {
@@ -149,12 +149,50 @@ describe('show_products', () => {
     expect(rows[0]).toEqual({
       id: `product:${V.vinyl}`,
       title: 'Pavimento Vinílico SPC…',
-      description: '24,90 €',
+      description: '24,90 € · Pavimento Vinílico SPC Carvalho Natural',
     });
-    expect(rows[2]!.description).toBe('20 mm · 68,50 € · Esgotado');
+    expect(rows[2]!.description).toBe(
+      '20 mm · 68,50 € · Esgotado · Soalho Madeira Maciça Carvalho',
+    );
     expect(list.button).toBe('Ver produtos');
     expect(result).toMatchObject({ queued: ['list'], not_found: ['missing'] });
     valid('351911111111', ctx);
+  });
+
+  it('titles list rows by what tells the products apart', async () => {
+    expect(
+      distinctNames([
+        'Pavimento Flutuante de Madeira Multicamadas - Kährs Carvalho Amber',
+        'Pavimento Flutuante de Madeira Multicamadas - Swood Nogueira',
+        'Pavimento Flutuante de Madeira Multicamadas - Swood Pinho Nórdico Branco',
+      ]),
+    ).toEqual(['Kährs Carvalho Amber', 'Swood Nogueira', 'Swood Pinho Nórdico Branco']);
+    // One product, or names that differ from the first word, are kept whole.
+    expect(distinctNames(['Deck Pinho Tratado'])).toEqual(['Deck Pinho Tratado']);
+    expect(distinctNames(['Óleo Osmo', 'Deck Pinho'])).toEqual(['Óleo Osmo', 'Deck Pinho']);
+    // A name that is all shared words keeps its last word.
+    expect(distinctNames(['Deck Pinho', 'Deck Pinho Tratado'])).toEqual(['Pinho', 'Pinho Tratado']);
+  });
+
+  it('uses the row titles Claude gives, by variant', async () => {
+    const ids = [V.vinyl, V.oak14, V.oak20, V.deck];
+    const { ctx } = await call(showProductsTool, {
+      variant_ids: ids,
+      row_titles: ['Vinílico SPC', 'Carvalho 14 mm', 'Carvalho 20 mm', 'Deck pinho'],
+    });
+    const [list] = ctx.outbox;
+    if (list?.type !== 'list') throw new Error('expected a list');
+    const rows = list.sections[0]!.rows;
+    expect(rows.map((r) => r.title)).toEqual([
+      'Vinílico SPC',
+      'Carvalho 14 mm',
+      'Carvalho 20 mm',
+      'Deck pinho',
+    ]);
+    expect(rows[0]!.description).toBe('24,90 € · Pavimento Vinílico SPC Carvalho Natural');
+    expect(() =>
+      showProductsTool.inputSchema.parse({ variant_ids: ids, row_titles: ['x'.repeat(25)] }),
+    ).toThrow();
   });
 
   it('rejects more than 10 ids and fails when none exist', async () => {
