@@ -51,6 +51,8 @@ import {
   type ProcessDocumentPayload,
 } from './knowledge/process.js';
 import { PrivacyService } from './privacy/service.js';
+import { InsightsService } from './admin/overview/service.js';
+import { WeeklyInsights } from './admin/overview/weekly.js';
 
 export interface AppDeps {
   env: Env;
@@ -173,6 +175,20 @@ export function createApp(deps: AppDeps) {
   });
   // Privacy tools (WA-028). Features with customer data add handlers in privacy/handlers.ts.
   const privacy = new PrivacyService({ db: deps.db, messages });
+  // Overview, "couldn't answer" and the Monday email (WA-029).
+  const insights = new InsightsService({ db: deps.db });
+  const weeklyInsights = new WeeklyInsights({
+    db: deps.db,
+    clients: deps.clients,
+    insights,
+    mailer: mailerFromEnv({
+      db: deps.db,
+      backoffice,
+      resendApiKey: deps.env.RESEND_API_KEY,
+      redirectTo: deps.env.MAIL_REDIRECT_TO,
+    }),
+    dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}`,
+  });
 
   const app = new Hono();
   if (deps.logRequests)
@@ -210,6 +226,7 @@ export function createApp(deps: AppDeps) {
           ? (name, payload, retryCount) => queue.run(name, payload, retryCount)
           : undefined,
       leadReminders,
+      weeklyInsights,
     }),
   );
 
@@ -255,6 +272,7 @@ export function createApp(deps: AppDeps) {
       leads,
       knowledge,
       privacy,
+      insights,
       devSecret,
     }),
   );
@@ -277,6 +295,8 @@ export function createApp(deps: AppDeps) {
     knowledge,
     files,
     privacy,
+    insights,
+    weeklyInsights,
   };
 }
 

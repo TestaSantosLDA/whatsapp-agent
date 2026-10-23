@@ -435,3 +435,35 @@ export const privacyAudit = pgTable(
   },
   (t) => [index('privacy_audit_client_time').on(t.clientId, t.createdAt)],
 );
+
+// ---------- WA-029: overview and "couldn't answer" list ----------
+
+/**
+ * A "couldn't answer" topic an admin dismissed: its questions up to `dismissed_at` are hidden;
+ * newer ones show again. Topics are catalogue product types or fixed themes, never customer text.
+ */
+export const insightGapDismissals = pgTable(
+  'insight_gap_dismissals',
+  {
+    id: id(),
+    clientId: clientId(),
+    topic: text('topic').notNull(),
+    dismissedBy: uuid('dismissed_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('insight_gap_dismissals_topic').on(t.clientId, t.topic)],
+);
+
+/** The Monday email to admins, claimed once per client and week so two runs never both send. */
+export const insightReports = pgTable(
+  'insight_reports',
+  {
+    id: id(),
+    clientId: clientId(),
+    /** Local date of the Monday the reported week started, `YYYY-MM-DD`. */
+    weekStart: text('week_start').notNull(),
+    recipients: integer('recipients').notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('insight_reports_week').on(t.clientId, t.weekStart)],
+);

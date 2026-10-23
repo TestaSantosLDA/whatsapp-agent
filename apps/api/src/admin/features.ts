@@ -12,6 +12,7 @@ import type { AdminEnv } from './context.js';
 import type { AdminDeps } from './deps.js';
 import { leadsRoutes } from './leads/routes.js';
 import { knowledgeRoutes } from './knowledge/routes.js';
+import { overviewRoutes } from './overview/routes.js';
 import { privacyRoutes } from './privacy/routes.js';
 import { settingsRoutes } from './settings/routes.js';
 import { teamRoutes } from './team/routes.js';
@@ -29,6 +30,6 @@ export const adminFeatures: AdminFeature[] = [
   { path: '/leads', routes: leadsRoutes },
   { path: '/knowledge', routes: knowledgeRoutes },
   // WA-027 { path: '/customers', routes: customersRoutes },
-  // WA-029 { path: '/overview', routes: overviewRoutes },
+  { path: '/overview', routes: overviewRoutes },
   { path: '/privacy', routes: privacyRoutes },
 ];
