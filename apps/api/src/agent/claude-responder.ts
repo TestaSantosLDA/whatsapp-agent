@@ -142,17 +142,23 @@ export class ClaudeResponder implements Responder {
       });
 
       let final: BetaMessage | undefined;
+      // Claude sometimes writes the reply next to a tool call (offer_choices) and then ends the
+      // turn with no text: the reply is the last text it wrote in this turn.
+      let lastText = '';
+      const textOf = (m: BetaMessage) =>
+        m.content
+          .flatMap((b) => (b.type === 'text' ? [b.text] : []))
+          .join('\n\n')
+          .trim();
       for await (const message of runner) {
         final = message;
+        lastText = textOf(message) || lastText;
         usage.inputTokens += message.usage.input_tokens;
         usage.outputTokens += message.usage.output_tokens;
         usage.cacheReadTokens += message.usage.cache_read_input_tokens ?? 0;
         usage.cacheWriteTokens += message.usage.cache_creation_input_tokens ?? 0;
       }
-      const text = (final?.content ?? [])
-        .flatMap((b) => (b.type === 'text' ? [b.text] : []))
-        .join('\n\n')
-        .trim();
+      const text = lastText;
       if (!final || final.stop_reason === 'refusal' || (!text && ctx.outbox.length === 0)) {
         const reason = `agent produced no reply (stop_reason ${final?.stop_reason ?? 'none'})`;
         // A refusal that survived the fallback will refuse again: hand over now, do not retry.
