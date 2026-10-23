@@ -27,6 +27,7 @@ import {
   waitingLabel,
   type StatusChange,
 } from './leads.data';
+import { LeadQuotes } from '../quotes/lead-quotes';
 import { StatusBadge, StatusChips } from './status-chips';
 
 /** Fields shown in their own places (or not useful to the team), left out of "Dados". */
@@ -72,7 +73,7 @@ const attachmentLabels: Record<string, string> = {
 /** One lead (WA-024): what the customer asked for, status, owner, notes and history. */
 @Component({
   selector: 'app-lead-page',
-  imports: [RouterLink, StatusBadge, StatusChips],
+  imports: [RouterLink, StatusBadge, StatusChips, LeadQuotes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="page">
@@ -169,6 +170,8 @@ const attachmentLabels: Record<string, string> = {
                 </a>
               }
             </section>
+
+            <app-lead-quotes [leadId]="l.id" />
           </div>
 
           <div class="stack">
@@ -387,6 +390,8 @@ export class LeadPage {
         return d['toName'] ? `Responsável: ${String(d['toName'])}` : 'Responsável removido';
       case 'note':
         return 'Nota adicionada';
+      case 'quote_sent':
+        return `Orçamento ${String(d['number'])} enviado por ${d['channel'] === 'email' ? 'email' : 'WhatsApp'}`;
       case 'reminder_owner':
         return `Lembrete enviado ao responsável (${hours(d['hours'])} h úteis sem resposta)`;
       case 'reminder_admin':

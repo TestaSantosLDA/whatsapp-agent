@@ -4,6 +4,7 @@ import type { ClientConfig, MetaSendMessage } from '@wa/shared';
 export type OutboundMessage =
   | { type: 'text'; text: string }
   | { type: 'image'; url: string; caption?: string }
+  | { type: 'document'; url: string; filename?: string; caption?: string }
   | {
       type: 'buttons';
       body: string;
@@ -40,6 +41,12 @@ export function toMetaPayload(to: string, message: OutboundMessage): MetaSendMes
       return { ...base, type: 'text', text: { body: message.text, preview_url: true } };
     case 'image':
       return { ...base, type: 'image', image: { link: message.url, caption: message.caption } };
+    case 'document':
+      return {
+        ...base,
+        type: 'document',
+        document: { link: message.url, filename: message.filename, caption: message.caption },
+      };
     case 'buttons':
       return {
         ...base,
@@ -79,6 +86,8 @@ export function payloadText(payload: MetaSendMessage): string {
       return payload.text.body;
     case 'image':
       return payload.image.caption ?? '[image]';
+    case 'document':
+      return payload.document.caption ?? `[document] ${payload.document.filename ?? ''}`.trim();
     case 'interactive':
       return payload.interactive.body.text;
   }

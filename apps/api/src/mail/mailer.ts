@@ -6,7 +6,14 @@ import { BackgroundTasks } from '../services/background.js';
 import type { BackofficeService } from '../services/backoffice.js';
 
 /** `inbox_alert`: a customer waiting in the dashboard inbox (WA-023). */
-export type EmailKind = 'lead' | 'handoff' | 'order_draft' | 'lead_reminder' | 'inbox_alert';
+export type EmailKind =
+  'lead' | 'handoff' | 'order_draft' | 'lead_reminder' | 'inbox_alert' | 'quote';
+
+/** A file sent with an email (WA-025: the quote PDF). Not stored in the outbox. */
+export interface EmailAttachment {
+  filename: string;
+  content: Uint8Array;
+}
 
 /** An email to the client's team about one conversation (WA-015). */
 export interface Email {
@@ -21,6 +28,7 @@ export interface Email {
   subject: string;
   text: string;
   html: string;
+  attachments?: EmailAttachment[];
 }
 
 /**
@@ -146,6 +154,12 @@ export class ResendTransport implements MailTransport {
         text: email.text,
         html: email.html,
         ...(email.replyTo ? { reply_to: email.replyTo } : {}),
+        ...(email.attachments?.length && {
+          attachments: email.attachments.map((a) => ({
+            filename: a.filename,
+            content: Buffer.from(a.content).toString('base64'),
+          })),
+        }),
       }),
       signal: AbortSignal.timeout(15_000),
     });

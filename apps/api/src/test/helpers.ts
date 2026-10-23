@@ -57,6 +57,7 @@ export async function testApp(
     | 'jwks'
     | 'files'
     | 'documentReader'
+    | 'quotePdf'
   > = {},
 ) {
   const env = loadEnv({
@@ -80,6 +81,7 @@ export async function testApp(
     jwks: opts.jwks,
     files: opts.files ?? new MemoryFileStore(),
     documentReader: opts.documentReader,
+    quotePdf: opts.quotePdf,
   });
   return {
     ...built,

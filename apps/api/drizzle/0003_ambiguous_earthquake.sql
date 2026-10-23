@@ -101,6 +101,46 @@ CREATE TABLE "product_data_proposals" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "quote_counters" (
+	"client_id" text NOT NULL,
+	"year" integer NOT NULL,
+	"last" integer NOT NULL,
+	CONSTRAINT "quote_counters_client_id_year_pk" PRIMARY KEY("client_id","year")
+);
+--> statement-breakpoint
+CREATE TABLE "quote_pdfs" (
+	"quote_id" uuid PRIMARY KEY NOT NULL,
+	"client_id" text NOT NULL,
+	"filename" text NOT NULL,
+	"content" "bytea" NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "quotes" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"client_id" text NOT NULL,
+	"lead_id" uuid,
+	"conversation_id" uuid,
+	"contact_id" uuid,
+	"branch_id" text,
+	"number" text NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
+	"customer" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"lines" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"discount" jsonb,
+	"valid_until" text NOT NULL,
+	"fulfilment" text,
+	"notes" text,
+	"total_cents" integer DEFAULT 0 NOT NULL,
+	"sends" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"public_token" text,
+	"created_by" uuid,
+	"updated_by" uuid,
+	"sent_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "agent_runs" ALTER COLUMN "conversation_id" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "contacts" ADD COLUMN "profiling_opt_out" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "conversations" ADD COLUMN "branch_id" text;--> statement-breakpoint
@@ -128,6 +168,12 @@ ALTER TABLE "product_data_overrides" ADD CONSTRAINT "product_data_overrides_prop
 ALTER TABLE "product_data_overrides" ADD CONSTRAINT "product_data_overrides_approved_by_team_members_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_data_proposals" ADD CONSTRAINT "product_data_proposals_document_id_documents_id_fk" FOREIGN KEY ("document_id") REFERENCES "public"."documents"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_data_proposals" ADD CONSTRAINT "product_data_proposals_decided_by_team_members_id_fk" FOREIGN KEY ("decided_by") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "quote_pdfs" ADD CONSTRAINT "quote_pdfs_quote_id_quotes_id_fk" FOREIGN KEY ("quote_id") REFERENCES "public"."quotes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "quotes" ADD CONSTRAINT "quotes_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."leads"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "quotes" ADD CONSTRAINT "quotes_conversation_id_conversations_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "public"."conversations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "quotes" ADD CONSTRAINT "quotes_contact_id_contacts_id_fk" FOREIGN KEY ("contact_id") REFERENCES "public"."contacts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "quotes" ADD CONSTRAINT "quotes_created_by_team_members_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "quotes" ADD CONSTRAINT "quotes_updated_by_team_members_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "document_passages_document" ON "document_passages" USING btree ("document_id","page");--> statement-breakpoint
 CREATE INDEX "document_passages_search" ON "document_passages" USING gin ("search_vector");--> statement-breakpoint
 CREATE INDEX "documents_client" ON "documents" USING btree ("client_id","created_at");--> statement-breakpoint
@@ -137,6 +183,10 @@ CREATE INDEX "privacy_audit_client_time" ON "privacy_audit" USING btree ("client
 CREATE INDEX "privacy_requests_client_status" ON "privacy_requests" USING btree ("client_id","status","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "product_data_overrides_key" ON "product_data_overrides" USING btree ("client_id","product_key","field");--> statement-breakpoint
 CREATE INDEX "product_data_proposals_document" ON "product_data_proposals" USING btree ("document_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "quotes_client_number" ON "quotes" USING btree ("client_id","number");--> statement-breakpoint
+CREATE UNIQUE INDEX "quotes_public_token" ON "quotes" USING btree ("public_token");--> statement-breakpoint
+CREATE INDEX "quotes_lead" ON "quotes" USING btree ("lead_id");--> statement-breakpoint
+CREATE INDEX "quotes_contact" ON "quotes" USING btree ("contact_id");--> statement-breakpoint
 ALTER TABLE "conversations" ADD CONSTRAINT "conversations_assigned_member_id_team_members_id_fk" FOREIGN KEY ("assigned_member_id") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "leads" ADD CONSTRAINT "leads_owner_member_id_team_members_id_fk" FOREIGN KEY ("owner_member_id") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "messages" ADD CONSTRAINT "messages_sent_by_member_id_team_members_id_fk" FOREIGN KEY ("sent_by_member_id") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint

@@ -15,6 +15,7 @@ const EMAIL_KINDS: Record<string, string> = {
   handoff: 'Passagem',
   order_draft: 'Rascunho de encomenda',
   inbox_alert: 'Alerta à equipa',
+  quote: 'Orçamento ao cliente',
 };
 
 const FIELD_LABELS: Record<string, string> = {

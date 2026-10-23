@@ -89,6 +89,18 @@ export const metaSendMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('image'),
     image: z.object({ link: z.string().url(), caption: z.string().max(1024).optional() }),
   }),
+  // WA-025: quote PDFs sent to the customer.
+  z.object({
+    messaging_product: z.literal('whatsapp'),
+    recipient_type: z.literal('individual'),
+    to: z.string(),
+    type: z.literal('document'),
+    document: z.object({
+      link: z.string().url(),
+      filename: z.string().max(240).optional(),
+      caption: z.string().max(1024).optional(),
+    }),
+  }),
   z.object({
     messaging_product: z.literal('whatsapp'),
     recipient_type: z.literal('individual'),

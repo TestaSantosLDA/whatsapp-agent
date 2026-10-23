@@ -8,13 +8,16 @@ export interface MessageView {
   id: string;
   /** 'in' = sent by the customer (right, green); 'out' = business reply (left, white). */
   side: 'in' | 'out';
-  kind: 'text' | 'image' | 'buttons' | 'list' | 'unknown';
+  kind: 'text' | 'image' | 'document' | 'buttons' | 'list' | 'unknown';
   timestamp: string;
   status?: 'sent' | 'read';
   text?: string;
   header?: string;
   footer?: string;
   imageUrl?: string;
+  /** A document (WA-025: quote PDFs): its link and file name. */
+  documentUrl?: string;
+  filename?: string;
   buttons?: { id: string; title: string }[];
   listButton?: string;
   list?: ListInteractive;
@@ -42,6 +45,14 @@ export function toMessageView(m: SimChatMessage): MessageView {
         kind: 'image',
         imageUrl: localizeStaticUrl(p.image.link),
         text: p.image.caption,
+      };
+    case 'document':
+      return {
+        ...base,
+        kind: 'document',
+        documentUrl: localizeStaticUrl(p.document.link),
+        filename: p.document.filename ?? 'Documento',
+        text: p.document.caption,
       };
     case 'interactive': {
       const i = p.interactive;

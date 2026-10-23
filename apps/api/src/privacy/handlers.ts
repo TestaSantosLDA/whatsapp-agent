@@ -13,6 +13,7 @@ import {
   outbox,
   privacyRequests,
 } from '../db/schema.js';
+import { quotesHandler } from '../admin/quotes/privacy.js';
 import type { PersonalDataHandler, PrivacyContext } from './registry.js';
 
 const count = (rows: unknown[]) => rows.length;
@@ -340,4 +341,5 @@ export const personalDataHandlers: PersonalDataHandler[] = [
   outboxHandler,
   agentRunsHandler,
   privacyRequestsHandler,
+  quotesHandler,
 ];
