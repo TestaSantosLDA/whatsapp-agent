@@ -1,0 +1,313 @@
+<section class="page">
+  @if (quote(); as q) {
+    <a
+      class="btn btn--ghost btn--sm back"
+      [routerLink]="q.leadId ? ['/leads', q.leadId] : ['/leads']"
+    >
+      ← Pedido
+    </a>
+  }
+  @if (error()) {
+    <p class="notice notice--error" role="alert">{{ error() }}</p>
+  }
+  @if (quote(); as q) {
+    @if (draft(); as d) {
+      <header class="page__head">
+        <div class="qhead">
+          <h1 class="page__title">Orçamento {{ q.number }}</h1>
+          <span class="tag" [class.tag--sent]="locked()">{{ statusLabel(q) }}</span>
+        </div>
+        <p class="muted small m0">
+          {{ branch(q.branchName) }} · criado {{ when(q.createdAt) }}
+          @if (q.createdBy) {
+            por {{ person(q.createdBy) }}
+          }
+        </p>
+      </header>
+      @if (notice()) {
+        <p class="notice" role="status">{{ notice() }}</p>
+      }
+      @if (locked()) {
+        <p class="notice">
+          Enviado: já não pode ser alterado. Para mudar alguma coisa, crie um novo orçamento a
+          partir do pedido.
+        </p>
+      }
+
+      <div class="qgrid">
+        <div class="stack">
+          <section class="card">
+            <h2 class="card__title">Linhas</h2>
+            <ol class="plain lines">
+              @for (l of d.lines; track $index; let i = $index) {
+                <li class="qline">
+                  <label class="field">
+                    <span class="field__label">Descrição</span>
+                    <input
+                      class="input"
+                      [value]="l.description"
+                      [disabled]="locked()"
+                      (input)="setLineText(i, 'description', $any($event.target).value)"
+                    />
+                  </label>
+                  <div class="nums">
+                    <label class="field">
+                      <span class="field__label">Qtd.</span>
+                      <input
+                        class="input"
+                        inputmode="decimal"
+                        [value]="num(l.quantity)"
+                        [disabled]="locked()"
+                        (change)="setLineNumber(i, 'quantity', $any($event.target).value)"
+                      />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Un.</span>
+                      <input
+                        class="input"
+                        [value]="l.unit"
+                        [disabled]="locked()"
+                        (input)="setLineText(i, 'unit', $any($event.target).value)"
+                      />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Preço s/ IVA</span>
+                      <input
+                        class="input"
+                        inputmode="decimal"
+                        [value]="num(l.unitPrice)"
+                        [disabled]="locked()"
+                        (change)="setLineNumber(i, 'unitPrice', $any($event.target).value)"
+                      />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Desc. %</span>
+                      <input
+                        class="input"
+                        inputmode="decimal"
+                        [value]="num(l.discountPercent)"
+                        [disabled]="locked()"
+                        (change)="setLineNumber(i, 'discountPercent', $any($event.target).value)"
+                      />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">IVA %</span>
+                      <input
+                        class="input"
+                        inputmode="decimal"
+                        [value]="num(l.vatPercent)"
+                        [disabled]="locked()"
+                        (change)="setLineNumber(i, 'vatPercent', $any($event.target).value)"
+                      />
+                    </label>
+                  </div>
+                  <div class="lfoot">
+                    <span class="small muted">
+                      @if (l.sku) {
+                        Ref. {{ l.sku }} ·
+                      }
+                      Total s/ IVA
+                      <strong class="ink">{{ money(totals()?.lines?.[i]?.netCents ?? 0) }}</strong>
+                    </span>
+                    @if (!locked()) {
+                      <button type="button" class="btn btn--ghost btn--sm" (click)="removeLine(i)">
+                        Remover
+                      </button>
+                    }
+                  </div>
+                </li>
+              } @empty {
+                <li class="small muted">Sem linhas. Adicione os produtos a orçamentar.</li>
+              }
+            </ol>
+            @if (!locked()) {
+              <button type="button" class="btn btn--sm" (click)="addLine()">
+                + Adicionar linha
+              </button>
+            }
+          </section>
+
+          <section class="card">
+            <h2 class="card__title">Condições</h2>
+            <label class="field">
+              <span class="field__label">Entrega ou levantamento</span>
+              <input
+                class="input"
+                [value]="d.fulfilment ?? ''"
+                [disabled]="locked()"
+                (input)="setField('fulfilment', $any($event.target).value)"
+              />
+            </label>
+            <div class="two">
+              <label class="field">
+                <span class="field__label">Válido até</span>
+                <input
+                  class="input"
+                  type="date"
+                  [value]="d.validUntil"
+                  [disabled]="locked()"
+                  (change)="setField('validUntil', $any($event.target).value)"
+                />
+              </label>
+              <label class="field">
+                <span class="field__label">Desconto global</span>
+                <select
+                  class="input"
+                  [disabled]="locked()"
+                  (change)="setDiscountKind($any($event.target).value)"
+                >
+                  <option value="" [selected]="!d.discount">Sem desconto</option>
+                  <option value="percent" [selected]="d.discount?.kind === 'percent'">
+                    Percentagem
+                  </option>
+                  <option value="amount" [selected]="d.discount?.kind === 'amount'">
+                    Valor (€)
+                  </option>
+                </select>
+              </label>
+              @if (d.discount; as disc) {
+                <label class="field">
+                  <span class="field__label">{{
+                    disc.kind === 'percent' ? 'Desconto %' : 'Desconto € s/ IVA'
+                  }}</span>
+                  <input
+                    class="input"
+                    inputmode="decimal"
+                    [value]="num(disc.value)"
+                    [disabled]="locked()"
+                    (change)="setDiscountValue($any($event.target).value)"
+                  />
+                </label>
+              }
+            </div>
+            <label class="field">
+              <span class="field__label">Observações (no PDF)</span>
+              <textarea
+                class="input"
+                rows="3"
+                [value]="d.notes ?? ''"
+                [disabled]="locked()"
+                (input)="setField('notes', $any($event.target).value)"
+              ></textarea>
+            </label>
+          </section>
+        </div>
+
+        <div class="stack">
+          <section class="card">
+            <h2 class="card__title">Cliente</h2>
+            <div class="two">
+              @for (f of customerFields; track f.key) {
+                <label class="field">
+                  <span class="field__label">{{ f.label }}</span>
+                  <input
+                    class="input"
+                    [type]="f.type ?? 'text'"
+                    [value]="d.customer[f.key] ?? ''"
+                    [disabled]="locked()"
+                    (input)="setCustomer(f.key, $any($event.target).value)"
+                  />
+                </label>
+              }
+            </div>
+          </section>
+
+          @if (totals(); as t) {
+            <section class="card">
+              <h2 class="card__title">Totais</h2>
+              <dl class="totals">
+                <dt>Subtotal</dt>
+                <dd>{{ money(t.subtotalCents) }}</dd>
+                @if (t.discountCents) {
+                  <dt>Desconto</dt>
+                  <dd>-{{ money(t.discountCents) }}</dd>
+                  <dt>Total sem IVA</dt>
+                  <dd>{{ money(t.netCents) }}</dd>
+                }
+                @for (g of t.vat; track g.percent) {
+                  <dt>IVA {{ pct(g.percent) }} %</dt>
+                  <dd>{{ money(g.vatCents) }}</dd>
+                }
+                <dt class="grand">Total</dt>
+                <dd class="grand" data-testid="total">{{ money(t.totalCents) }}</dd>
+              </dl>
+            </section>
+          }
+
+          <section class="card">
+            <h2 class="card__title">{{ locked() ? 'Enviar outra vez' : 'Enviar ao cliente' }}</h2>
+            <div class="qactions">
+              @if (!locked()) {
+                <button
+                  type="button"
+                  class="btn btn--sm"
+                  [disabled]="busy() || !dirty()"
+                  (click)="save()"
+                >
+                  Guardar
+                </button>
+              }
+              <button type="button" class="btn btn--sm" [disabled]="busy()" (click)="openPdf()">
+                Ver PDF
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn btn--primary wide"
+              [disabled]="busy() || !q.canSendWhatsapp || !d.lines.length"
+              (click)="send('whatsapp')"
+            >
+              Enviar por WhatsApp
+            </button>
+            @if (!q.canSendWhatsapp) {
+              <p class="small muted m0">Este pedido não tem conversa de WhatsApp.</p>
+            }
+            <div class="mail">
+              <input
+                class="input"
+                type="email"
+                placeholder="Email do cliente"
+                aria-label="Email do cliente"
+                [value]="emailTo()"
+                (input)="emailTo.set($any($event.target).value)"
+              />
+              <button
+                type="button"
+                class="btn"
+                [disabled]="busy() || !emailTo().trim() || !d.lines.length"
+                (click)="send('email')"
+              >
+                Enviar por email
+              </button>
+            </div>
+            @if (q.sends.length) {
+              <h3 class="sub">Envios</h3>
+              <ul class="plain small">
+                @for (s of q.sends; track $index) {
+                  <li>
+                    {{ channelLabel(s.channel) }} para {{ s.to }} · {{ when(s.at) }}
+                    @if (s.by) {
+                      · {{ person(s.by) }}
+                    }
+                  </li>
+                }
+              </ul>
+            }
+            @if (!locked()) {
+              <button
+                type="button"
+                class="btn btn--ghost btn--sm danger"
+                [disabled]="busy()"
+                (click)="remove()"
+              >
+                Apagar rascunho
+              </button>
+            }
+          </section>
+        </div>
+      </div>
+    }
+  } @else if (!error()) {
+    <p class="muted">A carregar…</p>
+  }
+</section>

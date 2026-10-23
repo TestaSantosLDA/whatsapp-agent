@@ -690,6 +690,32 @@ app-chat-phone {
   background: #ccc;
   min-height: 80px;
 }
+/* WA-025: a document (quote PDF), as WhatsApp shows it: icon and file name in a grey box. */
+.bubble__doc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -1px -3px 4px -4px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.05);
+  color: inherit;
+  text-decoration: none;
+}
+.bubble__doc-icon {
+  flex: none;
+  padding: 6px 4px;
+  border-radius: 3px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.bubble__doc-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
 .bubble__meta {
   float: right;
   display: inline-flex;

@@ -376,6 +376,8 @@ export function renderOutbound(payload: unknown): string {
       return p.text.body;
     case 'image':
       return `[image] ${p.image.caption ?? ''}`.trim();
+    case 'document':
+      return `[document ${p.document.filename ?? ''}] ${p.document.caption ?? ''}`.trim();
     case 'interactive': {
       const action = p.interactive.action;
       if ('buttons' in action) {

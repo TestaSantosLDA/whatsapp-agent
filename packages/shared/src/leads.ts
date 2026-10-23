@@ -52,7 +52,14 @@ export const leadTypeLabel = (type: string): string => leadTypeLabels[type] ?? t
 
 /** What the activity history records. `created` carries the automatic owner. */
 export type LeadEventKind =
-  'created' | 'status' | 'owner' | 'note' | 'reminder_owner' | 'reminder_admin';
+  | 'created'
+  | 'status'
+  | 'owner'
+  | 'note'
+  | 'reminder_owner'
+  | 'reminder_admin'
+  // WA-025: a quote was sent, `{ quoteId, number, channel, totalCents }`.
+  | 'quote_sent';
 
 export interface AdminLeadPerson {
   id: string;

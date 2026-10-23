@@ -103,6 +103,7 @@ describe('Pedidos', () => {
         const body = init?.body ? JSON.parse(String(init.body)) : undefined;
         requests.push({ method, url, body });
         if (url.endsWith('/team')) return json([]);
+        if (url.includes('/quotes?lead=')) return json([]); // WA-025's card on the lead page
         if (method === 'PATCH' && url.endsWith('/status')) return json(detail({ ...body }));
         if (method === 'PATCH' && url.endsWith('/owner')) {
           return json(detail({ owner: { id: 'm2', name: 'Rui', email: 'rui@example.pt' } }));

@@ -7,6 +7,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -435,3 +436,82 @@ export const privacyAudit = pgTable(
   },
   (t) => [index('privacy_audit_client_time').on(t.clientId, t.createdAt)],
 );
+
+// ---------- WA-025: quotes ----------
+
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => 'bytea',
+  toDriver: (value) => Buffer.from(value),
+  fromDriver: (value) => new Uint8Array(value),
+});
+
+/** The last quote number given per client and year (JUL-2026-0042 is 42 of 2026). */
+export const quoteCounters = pgTable(
+  'quote_counters',
+  {
+    clientId: clientId(),
+    year: integer('year').notNull(),
+    last: integer('last').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.clientId, t.year] })],
+);
+
+/**
+ * A quote drafted from a lead (WA-025). Lines, discount and customer are what the salesperson
+ * edited; totals are always computed from them by code (`computeQuoteTotals`). Once sent, the
+ * quote is locked and its PDF is kept in `quote_pdfs`, so what the customer got never changes.
+ */
+export const quotes = pgTable(
+  'quotes',
+  {
+    id: id(),
+    clientId: clientId(),
+    leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+    conversationId: uuid('conversation_id').references(() => conversations.id),
+    contactId: uuid('contact_id').references(() => contacts.id),
+    branchId: text('branch_id'),
+    /** e.g. JUL-2026-0042, unique per client. */
+    number: text('number').notNull(),
+    status: text('status', { enum: ['draft', 'sent'] })
+      .notNull()
+      .default('draft'),
+    /** A QuoteCustomer (packages/shared/src/quotes.ts). */
+    customer: jsonb('customer').$type<Record<string, unknown>>().notNull().default({}),
+    /** QuoteLine[]. */
+    lines: jsonb('lines').$type<Record<string, unknown>[]>().notNull().default([]),
+    /** A QuoteDiscount on the whole quote, or null. */
+    discount: jsonb('discount').$type<Record<string, unknown> | null>(),
+    /** Last day the quote is valid, YYYY-MM-DD. */
+    validUntil: text('valid_until').notNull(),
+    fulfilment: text('fulfilment'),
+    notes: text('notes'),
+    /** The computed total with IVA, kept for lists and statistics. */
+    totalCents: integer('total_cents').notNull().default(0),
+    /** Every delivery: `{ channel, to, at, by }`. */
+    sends: jsonb('sends').$type<Record<string, unknown>[]>().notNull().default([]),
+    /** Unguessable part of the PDF's public link (WhatsApp fetches the document from it). */
+    publicToken: text('public_token'),
+    createdBy: uuid('created_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    updatedBy: uuid('updated_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('quotes_client_number').on(t.clientId, t.number),
+    uniqueIndex('quotes_public_token').on(t.publicToken),
+    index('quotes_lead').on(t.leadId),
+    index('quotes_contact').on(t.contactId),
+  ],
+);
+
+/** The PDF of a sent quote, exactly as the customer received it. */
+export const quotePdfs = pgTable('quote_pdfs', {
+  quoteId: uuid('quote_id')
+    .primaryKey()
+    .references(() => quotes.id, { onDelete: 'cascade' }),
+  clientId: clientId(),
+  filename: text('filename').notNull(),
+  content: bytea('content').notNull(),
+  createdAt: createdAt(),
+});

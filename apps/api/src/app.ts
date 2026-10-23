@@ -51,6 +51,9 @@ import {
   type ProcessDocumentPayload,
 } from './knowledge/process.js';
 import { PrivacyService } from './privacy/service.js';
+import { QuotesService } from './admin/quotes/service.js';
+import { PdfLibQuoteRenderer, type QuotePdfRenderer } from './admin/quotes/pdf.js';
+import { publicQuoteRoutes } from './admin/quotes/routes.js';
 
 export interface AppDeps {
   env: Env;
@@ -77,6 +80,8 @@ export interface AppDeps {
    * ANTHROPIC_API_KEY is set; without it spreadsheets and Word files are search-only.
    */
   documentReader?: ParseClient;
+  /** Tests: renders quote PDFs (WA-025). Default: pdf-lib, fetching the client's logo. */
+  quotePdf?: QuotePdfRenderer;
 }
 
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
@@ -171,6 +176,20 @@ export function createApp(deps: AppDeps) {
     }),
     dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}`,
   });
+  // Quote drafts (WA-025): sent to the customer by email or as a WhatsApp document.
+  const quotes = new QuotesService({
+    db: deps.db,
+    leads,
+    messages,
+    mailer: mailerFromEnv({
+      db: deps.db,
+      backoffice,
+      resendApiKey: deps.env.RESEND_API_KEY,
+      redirectTo: deps.env.MAIL_REDIRECT_TO,
+    }),
+    pdf: deps.quotePdf ?? new PdfLibQuoteRenderer(),
+    publicBaseUrl: deps.env.PUBLIC_BASE_URL,
+  });
   // Privacy tools (WA-028). Features with customer data add handlers in privacy/handlers.ts.
   const privacy = new PrivacyService({ db: deps.db, messages });
 
@@ -186,6 +205,7 @@ export function createApp(deps: AppDeps) {
   app.get('/health', (c) => c.json({ ok: true }));
   app.get('/healthz', (c) => c.json({ ok: true }));
 
+  app.route('/static/quotes', publicQuoteRoutes(quotes));
   app.get('/static/:file', async (c) => {
     const file = basename(c.req.param('file'));
     const type = contentTypes[extname(file)];
@@ -253,6 +273,7 @@ export function createApp(deps: AppDeps) {
       team,
       settings,
       leads,
+      quotes,
       knowledge,
       privacy,
       devSecret,
@@ -274,6 +295,7 @@ export function createApp(deps: AppDeps) {
     verifier,
     leads,
     leadReminders,
+    quotes,
     knowledge,
     files,
     privacy,

@@ -6,6 +6,7 @@ import type { Env } from '../env.js';
 import type { PrivacyService } from '../privacy/service.js';
 import type { SupabaseJwtVerifier } from './auth.js';
 import type { LeadsService } from './leads/service.js';
+import type { QuotesService } from './quotes/service.js';
 import type { KnowledgeService } from './knowledge/service.js';
 import type { SettingsService } from './settings/service.js';
 import type { TeamService } from './team/service.js';
@@ -25,6 +26,8 @@ export interface AdminDeps {
   settings: SettingsService;
   /** WA-024: the leads pipeline. */
   leads: LeadsService;
+  /** WA-025: quote drafts. */
+  quotes: QuotesService;
   /** WA-026. */
   knowledge: KnowledgeService;
   /** Export, clear profile, delete, requests, retention, audit (WA-028). */
