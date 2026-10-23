@@ -96,6 +96,29 @@ export const setupSchema = z
     catalogue: z.string().optional(),
     /** Merged over the client's `product_data` for the eval only. */
     product_data: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+    /** Approved product data as the dashboard stores it (WA-026): wins over product_data. */
+    product_overrides: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+    /** Live knowledge documents for search_documents (WA-026), as passages: no file, no Claude. */
+    documents: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            passages: z
+              .array(
+                z
+                  .object({
+                    page: z.number().int().positive().optional(),
+                    label: z.string().optional(),
+                    text: z.string().min(1),
+                  })
+                  .strict(),
+              )
+              .min(1),
+          })
+          .strict(),
+      )
+      .default([]),
   })
   .strict();
 export type EvalSetup = z.infer<typeof setupSchema>;
@@ -120,7 +143,7 @@ export function loadEvalSet(clientId: string, root = evalsRoot): EvalSet {
     if (seen.has(c.id)) throw new Error(`Duplicate eval case id "${c.id}"`);
     seen.add(c.id);
   }
-  let setup: EvalSetup = { product_data: {} };
+  let setup: EvalSetup = { product_data: {}, product_overrides: {}, documents: [] };
   try {
     setup = setupSchema.parse(JSON.parse(readFileSync(join(dir, 'setup.json'), 'utf8')));
   } catch (error) {

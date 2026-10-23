@@ -39,6 +39,15 @@ import { adminApiRoutes, adminConfig, devLoginSecret } from './admin/router.js';
 import { SettingsService } from './admin/settings/service.js';
 import { SupabaseAdminApi, type SupabaseAdmin } from './admin/supabase-admin.js';
 import { TeamService } from './admin/team/service.js';
+import { KnowledgeService } from './admin/knowledge/service.js';
+import { DocumentExtractor, type ParseClient } from './knowledge/extractor.js';
+import { fileStoreFromEnv, type FileStore } from './knowledge/file-store.js';
+import {
+  onProcessDocumentFailure,
+  PROCESS_DOCUMENT,
+  processDocument,
+  type ProcessDocumentPayload,
+} from './knowledge/process.js';
 
 export interface AppDeps {
   env: Env;
@@ -58,6 +67,13 @@ export interface AppDeps {
   supabaseAdmin?: SupabaseAdmin;
   /** Tests: the signing keys instead of `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`. */
   jwks?: JWTVerifyGetKey;
+  /** Tests: where knowledge files go (WA-026). Default: from FILE_STORE. */
+  files?: FileStore;
+  /**
+   * Tests: the client that reads uploaded documents (a fake). Default: Anthropic when
+   * ANTHROPIC_API_KEY is set; without it spreadsheets and Word files are search-only.
+   */
+  documentReader?: ParseClient;
 }
 
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
@@ -79,9 +95,12 @@ export function createApp(deps: AppDeps) {
   const backoffice = new BackofficeService(deps.db, new EventBus<BackofficeEvent>());
   const jobDeps = { db: deps.db, clients: deps.clients, messages, backoffice };
   const onFailure = onProcessConversationFailure(jobDeps);
+  const onDocumentFailure = onProcessDocumentFailure(deps.db);
   const onJobFailure = async (job: Job, error: unknown) => {
     if (job.name === PROCESS_CONVERSATION)
       await onFailure(job.payload as ProcessConversationPayload, error);
+    else if (job.name === PROCESS_DOCUMENT)
+      await onDocumentFailure(job.payload as ProcessDocumentPayload, error);
     else console.error(`[queue] job ${job.name} failed`, error);
   };
   const queue = deps.queue ?? queueFromEnv(deps.env, onJobFailure);
@@ -90,6 +109,25 @@ export function createApp(deps: AppDeps) {
     PROCESS_CONVERSATION,
     processConversation({ ...jobDeps, responder, debounceMs: deps.debounceMs }),
   );
+  // Knowledge base (WA-026): uploaded files are read in the background.
+  const files = deps.files ?? fileStoreFromEnv(deps.env);
+  const documentReader =
+    deps.documentReader ??
+    (deps.env.ANTHROPIC_API_KEY
+      ? new Anthropic({ apiKey: deps.env.ANTHROPIC_API_KEY })
+      : undefined);
+  queue.register(
+    PROCESS_DOCUMENT,
+    processDocument({
+      db: deps.db,
+      clients: deps.clients,
+      files,
+      extractor: documentReader
+        ? new DocumentExtractor({ anthropic: documentReader, model: deps.env.KNOWLEDGE_MODEL })
+        : undefined,
+    }),
+  );
+  const knowledge = new KnowledgeService({ db: deps.db, files, queue });
   // Settings changed in the dashboard: the agent rebuilds its cached system prompt.
   deps.clients.onChange((clientId) => responder.invalidate?.(clientId));
 
@@ -194,6 +232,7 @@ export function createApp(deps: AppDeps) {
       verifier,
       team,
       settings,
+      knowledge,
       devSecret,
     }),
   );
@@ -202,7 +241,7 @@ export function createApp(deps: AppDeps) {
   if (deps.serveAdmin ?? deps.serveSimulator ?? true) serveAdmin(app, deps.env.ADMIN_DIST_DIR);
   if (deps.serveSimulator ?? true) serveSimulator(app, deps.env.SIMULATOR_DIST_DIR);
 
-  return { app, queue, bus, messages, backoffice, team, settings, verifier };
+  return { app, queue, bus, messages, backoffice, team, settings, verifier, knowledge, files };
 }
 
 function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise<void>): Queue {

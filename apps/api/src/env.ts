@@ -69,6 +69,16 @@ const envSchema = z
      * when NODE_ENV=production or on Cloud Run (K_SERVICE is set).
      */
     ADMIN_DEV_LOGIN: booleanFlag.default(false),
+    /**
+     * Where knowledge files go (WA-026): "supabase" (Storage, private bucket) or "local"
+     * (FILE_STORE_DIR). Default: supabase when SUPABASE_URL and the service role key are set.
+     */
+    FILE_STORE: z.enum(['local', 'supabase']).optional(),
+    FILE_STORE_DIR: z.string().default(`${repoRoot}data/files`),
+    /** Supabase Storage bucket for knowledge files; one per deployment. Created private. */
+    STORAGE_BUCKET: z.string().default('knowledge'),
+    /** Model that reads uploaded documents. Default: the client's model. */
+    KNOWLEDGE_MODEL: z.string().optional(),
     NODE_ENV: z.string().optional(),
     /** Set by Cloud Run on every service. */
     K_SERVICE: z.string().optional(),
@@ -79,6 +89,13 @@ const envSchema = z
         code: 'custom',
         path: ['ADMIN_DEV_LOGIN'],
         message: 'must not be set in production or on Cloud Run: it lets anyone sign in',
+      });
+    }
+    if (env.FILE_STORE === 'supabase' && !(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['FILE_STORE'],
+        message: 'supabase needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY',
       });
     }
     if (env.QUEUE !== 'cloudtasks') return;

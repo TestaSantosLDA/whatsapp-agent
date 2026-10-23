@@ -3,6 +3,7 @@ import { calculateQuantityTool } from './tools/calculate-quantity.js';
 import { createCheckoutLinkTool } from './tools/create-checkout-link.js';
 import { getProductTool } from './tools/get-product.js';
 import { saveLeadTool } from './tools/save-lead.js';
+import { searchDocumentsTool } from './tools/search-documents.js';
 import { searchProductsTool } from './tools/search-products.js';
 import { sendOrderDraftTool } from './tools/send-order-draft.js';
 import { showProductsTool } from './tools/show-products.js';
@@ -16,6 +17,7 @@ export const agentTools: AgentTool[] = [
   createCheckoutLinkTool,
   getProductTool,
   saveLeadTool,
+  searchDocumentsTool,
   searchProductsTool,
   sendOrderDraftTool,
   showProductsTool,

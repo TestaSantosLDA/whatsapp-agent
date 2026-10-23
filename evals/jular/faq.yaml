@@ -127,3 +127,21 @@
   rubric: >-
     Points to the refund policy page (https://loja.jular.pt/policies/refund-policy) and the
     contacts lojaonline@jular.pt / +351 219 484 000, without inventing a return window. English.
+
+# WA-026: answered only by a knowledge document (evals/jular/setup.json `documents`).
+- id: faq-wpc-joist-spacing-doc-pt
+  title: Espaçamento entre barrotes do deck WPC (só na ficha técnica)
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-21T11:00:00+01:00'
+  turns:
+    - Vou pôr o deck WPC antracite num terraço de casa. Qual é a distância máxima entre barrotes?
+  checks:
+    tools_called: [search_documents]
+    must_include: ['/35\s?cm/', '/ficha t[ée]cnica/']
+    must_not_include: ['/40\s?cm/']
+  rubric: >-
+    Answers from the technical sheet: at most 35 cm between joists (centre to centre) for
+    residential use (30 cm for public or pool areas may be mentioned), and names the source as the
+    technical sheet of the WPC Antracite deck. May add the 5 mm expansion gap and hidden stainless
+    clips from the same sheet. Does not invent other figures. pt-PT.

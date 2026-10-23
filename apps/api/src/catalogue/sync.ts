@@ -2,6 +2,7 @@ import type { ClientConfig } from '@wa/shared';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../db/index.js';
 import { products } from '../db/schema.js';
+import { loadProductOverrides, productExtra, stableJson, type ProductData } from './overrides.js';
 import type { ProductRow } from './repository.js';
 import { sourceForClient, type CatalogueItem, type CatalogueSource } from './source.js';
 
@@ -34,6 +35,8 @@ const CHUNK = 500;
  *   leads may still point at them, and they come back if the product is republished.
  * - `client.product_data` extras are merged into `extra`. Keys may be a product handle, a SKU
  *   or a variant id; for the same field the more specific key wins (variant id > SKU > handle).
+ *   Product data approved in the dashboard (`product_data_overrides`, WA-026) is merged the same
+ *   way on top, so it wins over the YAML (see catalogue/overrides.ts).
  * - Any fetch or parse failure leaves the catalogue as it was. So does an empty feed while the
  *   catalogue has available rows: that is far more likely a store outage than an empty shop.
  */
@@ -51,12 +54,13 @@ export async function syncCatalogue(opts: {
       throw new Error('the feed returned no products; keeping the current catalogue');
     }
     const byVariant = new Map(existing.map((r) => [r.variantId, r]));
+    const overrides = await loadProductOverrides(db, clientId);
 
     const inserts: (SyncedFields & { clientId: string })[] = [];
     const updates: { id: string; fields: SyncedFields }[] = [];
     let unchanged = 0;
     for (const item of items) {
-      const fields = toFields(item, client.product_data);
+      const fields = toFields(item, client.product_data, overrides);
       const row = byVariant.get(item.variantId);
       if (!row) inserts.push({ clientId, ...fields });
       else if (sameFields(row, fields)) unchanged++;
@@ -124,12 +128,12 @@ export async function syncClients(opts: {
   return results;
 }
 
-function toFields(item: CatalogueItem, productData: ClientConfig['product_data']): SyncedFields {
-  const extra = {
-    ...productData[item.handle],
-    ...(item.sku ? productData[item.sku] : undefined),
-    ...productData[item.variantId],
-  };
+function toFields(
+  item: CatalogueItem,
+  productData: ProductData,
+  overrides: ProductData,
+): SyncedFields {
+  const extra = productExtra(item, productData, overrides);
   return {
     productId: item.productId,
     variantId: item.variantId,
@@ -154,15 +158,6 @@ function sameFields(row: ProductRow, fields: SyncedFields): boolean {
     key === 'extra' || key === 'tags'
       ? stableJson(row[key]) === stableJson(fields[key])
       : row[key] === fields[key],
-  );
-}
-
-/** JSON with sorted object keys: jsonb does not keep the key order it was given. */
-function stableJson(value: unknown): string {
-  return JSON.stringify(value, (_key, v: unknown) =>
-    v && typeof v === 'object' && !Array.isArray(v)
-      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
-      : v,
   );
 }
 

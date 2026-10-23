@@ -1,16 +1,19 @@
 import type { Routes } from '@angular/router';
-import { ComingSoon } from '../../shared/coming-soon';
 
-/** Conhecimento (WA-026): placeholder until the ticket replaces it with its own screens. */
+/**
+ * Conhecimento (WA-026): files the assistant reads (technical sheets, price lists, catalogues),
+ * and the review of the product data Claude proposed from each. Sales can read; admins upload
+ * and decide (the API enforces it).
+ */
 export const routes: Routes = [
   {
     path: '',
-    component: ComingSoon,
     title: 'Conhecimento',
-    data: {
-      title: 'Conhecimento',
-      ticket: 'WA-026',
-      text: 'Fichas técnicas, tabelas de preços e catálogos que o assistente usa para responder.',
-    },
+    loadComponent: () => import('./knowledge.page').then((m) => m.KnowledgePage),
+  },
+  {
+    path: ':id',
+    title: 'Rever documento',
+    loadComponent: () => import('./document.page').then((m) => m.DocumentPage),
   },
 ];
