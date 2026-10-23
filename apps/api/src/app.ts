@@ -24,7 +24,7 @@ import {
 } from './jobs/process-conversation.js';
 import { parseServiceAccount, GoogleSheetsLeadSink } from './leads/sheets.js';
 import { LeadSinks, type LeadSink } from './leads/sink.js';
-import { mailerFromEnv } from './mail/mailer.js';
+import { mailerFromEnv, type Mailer } from './mail/mailer.js';
 import { CloudTasksQueue } from './queue/cloud-tasks.js';
 import { InProcessQueue, type Job, type Queue } from './queue/queue.js';
 import { jobsRoutes } from './routes/jobs.js';
@@ -51,6 +51,7 @@ import {
   type ProcessDocumentPayload,
 } from './knowledge/process.js';
 import { PrivacyService } from './privacy/service.js';
+import { InboxService } from './admin/inbox/service.js';
 
 export interface AppDeps {
   env: Env;
@@ -107,7 +108,15 @@ export function createApp(deps: AppDeps) {
     else console.error(`[queue] job ${job.name} failed`, error);
   };
   const queue = deps.queue ?? queueFromEnv(deps.env, onJobFailure);
-  const responder = deps.responder ?? defaultResponder(deps, backoffice);
+  // One mailer for the agent's emails and the inbox alerts (WA-023).
+  const mailer = mailerFromEnv({
+    clients: deps.clients.all(),
+    db: deps.db,
+    backoffice,
+    resendApiKey: deps.env.RESEND_API_KEY,
+    redirectTo: deps.env.MAIL_REDIRECT_TO,
+  });
+  const responder = deps.responder ?? defaultResponder(deps, backoffice, mailer);
   queue.register(
     PROCESS_CONVERSATION,
     processConversation({ ...jobDeps, responder, debounceMs: deps.debounceMs }),
@@ -151,11 +160,12 @@ export function createApp(deps: AppDeps) {
           serviceRoleKey: deps.env.SUPABASE_SERVICE_ROLE_KEY,
         })
       : undefined);
+  const dashboardUrl = `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}/`;
   const team = new TeamService({
     db: deps.db,
     clients: deps.clients,
     supabaseAdmin,
-    dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}/`,
+    dashboardUrl,
   });
   const settings = new SettingsService({ db: deps.db, clients: deps.clients });
   // Leads pipeline (WA-024).
@@ -163,16 +173,22 @@ export function createApp(deps: AppDeps) {
   const leadReminders = new LeadReminders({
     db: deps.db,
     clients: deps.clients,
-    mailer: mailerFromEnv({
-      db: deps.db,
-      backoffice,
-      resendApiKey: deps.env.RESEND_API_KEY,
-      redirectTo: deps.env.MAIL_REDIRECT_TO,
-    }),
+    mailer,
     dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}`,
   });
   // Privacy tools (WA-028). Features with customer data add handlers in privacy/handlers.ts.
   const privacy = new PrivacyService({ db: deps.db, messages });
+  const inbox = new InboxService({
+    db: deps.db,
+    clients: deps.clients,
+    messages,
+    backoffice,
+    chatBus: bus,
+    team,
+    mailer,
+    dashboardUrl,
+  });
+  inbox.start();
 
   const app = new Hono();
   if (deps.logRequests)
@@ -255,6 +271,7 @@ export function createApp(deps: AppDeps) {
       leads,
       knowledge,
       privacy,
+      inbox,
       devSecret,
     }),
   );
@@ -277,6 +294,8 @@ export function createApp(deps: AppDeps) {
     knowledge,
     files,
     privacy,
+    inbox,
+    mailer,
   };
 }
 
@@ -304,7 +323,7 @@ export function redactQuery(line: string): string {
   return line.replace(/([?&](?:code|phone|access_token)=)[^&\s]*/g, '$1***');
 }
 
-function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Responder {
+function defaultResponder(deps: AppDeps, backoffice: BackofficeService, mailer: Mailer): Responder {
   if (!deps.env.ANTHROPIC_API_KEY) {
     console.warn(
       '[agent] ANTHROPIC_API_KEY is not set: the echo test bot answers instead of Claude.',
@@ -321,12 +340,6 @@ function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Respond
     tools: agentTools,
     backoffice,
     leads: new LeadSinks({ db: deps.db, backoffice, sinks }),
-    mailer: mailerFromEnv({
-      clients: deps.clients.all(),
-      db: deps.db,
-      backoffice,
-      resendApiKey: deps.env.RESEND_API_KEY,
-      redirectTo: deps.env.MAIL_REDIRECT_TO,
-    }),
+    mailer,
   });
 }

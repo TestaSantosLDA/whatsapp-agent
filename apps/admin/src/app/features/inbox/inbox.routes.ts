@@ -1,16 +1,20 @@
 import type { Routes } from '@angular/router';
-import { ComingSoon } from '../../shared/coming-soon';
+import { InboxEmpty, InboxPage } from './inbox.page';
+import { InboxStore } from './inbox.store';
 
-/** Conversas (WA-023): placeholder until the ticket replaces it with its own screens. */
+/** Conversas (WA-023): the list, and a conversation by id (beside it on desktop). */
 export const routes: Routes = [
   {
     path: '',
-    component: ComingSoon,
-    title: 'Conversas',
-    data: {
-      title: 'Conversas',
-      ticket: 'WA-023',
-      text: 'As conversas com os clientes, as que precisam de uma pessoa primeiro. Aqui vai poder assumir uma conversa, responder como pessoa e devolvê-la ao assistente.',
-    },
+    component: InboxPage,
+    providers: [InboxStore],
+    children: [
+      { path: '', title: 'Conversas', component: InboxEmpty },
+      {
+        path: ':id',
+        title: 'Conversa',
+        loadComponent: () => import('./conversation.page').then((m) => m.ConversationPage),
+      },
+    ],
   },
 ];

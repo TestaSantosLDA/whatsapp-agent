@@ -87,7 +87,8 @@ Returns whether the branch is open now and, if not, when it opens next. Tell the
     });
     await ctx.db
       .update(conversations)
-      .set({ status: 'human' })
+      // The branch also scopes the conversation in the dashboard inbox (WA-023).
+      .set({ status: 'human', branchId: branch.id })
       .where(eq(conversations.id, ctx.conversation.id));
     ctx.backoffice?.publishStatus(client.id, ctx.contact.waId, 'human');
     await mailerOf(ctx).send(

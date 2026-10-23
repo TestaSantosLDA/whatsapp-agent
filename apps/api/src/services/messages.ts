@@ -100,6 +100,8 @@ export class MessageService {
     conversationId: string,
     to: string,
     outbound: OutboundMessage,
+    /** WA-023: a reply a team member sent from the inbox. */
+    opts: { sentByMemberId?: string } = {},
   ): Promise<MessageRow> {
     const payload = toMetaPayload(to, outbound);
     const { channelMessageId } = await this.channelFor(client).send(client, payload);
@@ -114,6 +116,7 @@ export class MessageService {
         text: payloadText(payload),
         payload,
         status: 'sent',
+        sentByMemberId: opts.sentByMemberId ?? null,
       })
       .returning();
     const key = EventBus.key(client.id, to);

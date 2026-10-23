@@ -103,6 +103,9 @@ CREATE TABLE "product_data_proposals" (
 --> statement-breakpoint
 ALTER TABLE "agent_runs" ALTER COLUMN "conversation_id" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "contacts" ADD COLUMN "profiling_opt_out" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "conversations" ADD COLUMN "branch_id" text;--> statement-breakpoint
+ALTER TABLE "conversations" ADD COLUMN "assigned_member_id" uuid;--> statement-breakpoint
+ALTER TABLE "conversations" ADD COLUMN "team_read_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "leads" ADD COLUMN "lost_reason" text;--> statement-breakpoint
 ALTER TABLE "leads" ADD COLUMN "owner_member_id" uuid;--> statement-breakpoint
 ALTER TABLE "leads" ADD COLUMN "contacted_at" timestamp with time zone;--> statement-breakpoint
@@ -111,6 +114,7 @@ ALTER TABLE "leads" ADD COLUMN "closed_at" timestamp with time zone;--> statemen
 ALTER TABLE "leads" ADD COLUMN "status_changed_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "leads" ADD COLUMN "owner_reminded_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "leads" ADD COLUMN "admin_reminded_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "sent_by_member_id" uuid;--> statement-breakpoint
 ALTER TABLE "document_passages" ADD CONSTRAINT "document_passages_document_id_documents_id_fk" FOREIGN KEY ("document_id") REFERENCES "public"."documents"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "documents" ADD CONSTRAINT "documents_uploaded_by_team_members_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "lead_events" ADD CONSTRAINT "lead_events_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."leads"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -133,7 +137,10 @@ CREATE INDEX "privacy_audit_client_time" ON "privacy_audit" USING btree ("client
 CREATE INDEX "privacy_requests_client_status" ON "privacy_requests" USING btree ("client_id","status","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "product_data_overrides_key" ON "product_data_overrides" USING btree ("client_id","product_key","field");--> statement-breakpoint
 CREATE INDEX "product_data_proposals_document" ON "product_data_proposals" USING btree ("document_id");--> statement-breakpoint
+ALTER TABLE "conversations" ADD CONSTRAINT "conversations_assigned_member_id_team_members_id_fk" FOREIGN KEY ("assigned_member_id") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "leads" ADD CONSTRAINT "leads_owner_member_id_team_members_id_fk" FOREIGN KEY ("owner_member_id") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "messages" ADD CONSTRAINT "messages_sent_by_member_id_team_members_id_fk" FOREIGN KEY ("sent_by_member_id") REFERENCES "public"."team_members"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "conversations_client_activity" ON "conversations" USING btree ("client_id","last_activity_at");--> statement-breakpoint
 CREATE INDEX "leads_client_created" ON "leads" USING btree ("client_id","created_at");--> statement-breakpoint
 CREATE INDEX "leads_client_status" ON "leads" USING btree ("client_id","status");--> statement-breakpoint
 CREATE INDEX "leads_owner" ON "leads" USING btree ("owner_member_id");

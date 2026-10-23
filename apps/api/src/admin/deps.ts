@@ -7,6 +7,7 @@ import type { PrivacyService } from '../privacy/service.js';
 import type { SupabaseJwtVerifier } from './auth.js';
 import type { LeadsService } from './leads/service.js';
 import type { KnowledgeService } from './knowledge/service.js';
+import type { InboxService } from './inbox/service.js';
 import type { SettingsService } from './settings/service.js';
 import type { TeamService } from './team/service.js';
 
@@ -29,6 +30,8 @@ export interface AdminDeps {
   knowledge: KnowledgeService;
   /** Export, clear profile, delete, requests, retention, audit (WA-028). */
   privacy: PrivacyService;
+  /** WA-023. */
+  inbox: InboxService;
   /** Secret of the dev login's tokens; undefined unless ADMIN_DEV_LOGIN is on (never in prod). */
   devSecret?: Uint8Array;
 }

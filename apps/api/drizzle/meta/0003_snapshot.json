@@ -1,5 +1,5 @@
 {
-  "id": "5f0b2046-3143-4b71-8dbd-19cff2fa1c99",
+  "id": "2aa5cc47-417f-4989-9e12-d84173d8c6a6",
   "prevId": "cd5951dd-7933-400e-b4e5-de31e4756089",
   "version": "7",
   "dialect": "postgresql",
@@ -286,6 +286,24 @@
           "notNull": true,
           "default": "now()"
         },
+        "branch_id": {
+          "name": "branch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assigned_member_id": {
+          "name": "assigned_member_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team_read_at": {
+          "name": "team_read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -300,6 +318,27 @@
           "columns": [
             {
               "expression": "contact_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "conversations_client_activity": {
+          "name": "conversations_client_activity",
+          "columns": [
+            {
+              "expression": "client_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_activity_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -339,6 +378,19 @@
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "conversations_assigned_member_id_team_members_id_fk": {
+          "name": "conversations_assigned_member_id_team_members_id_fk",
+          "tableFrom": "conversations",
+          "tableTo": "team_members",
+          "columnsFrom": [
+            "assigned_member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1106,6 +1158,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "sent_by_member_id": {
+          "name": "sent_by_member_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1170,6 +1228,19 @@
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "messages_sent_by_member_id_team_members_id_fk": {
+          "name": "messages_sent_by_member_id_team_members_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "team_members",
+          "columnsFrom": [
+            "sent_by_member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

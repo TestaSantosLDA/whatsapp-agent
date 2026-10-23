@@ -21,7 +21,7 @@ export interface BackofficeLead {
 export interface BackofficeEmail {
   id: string;
   createdAt: string;
-  /** lead, handoff or order_draft. */
+  /** lead, handoff, order_draft or inbox_alert (WA-023). */
   kind: string;
   to: string[];
   subject: string;
