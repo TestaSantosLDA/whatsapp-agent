@@ -192,6 +192,23 @@ quotes:
   footer: Jular Madeiras · Livro de Reclamações disponível em www.livroreclamacoes.pt
 
 privacy_policy_url: https://jular.pt/politica-de-privacidade
+
+# WA-032: buttons in the first reply when the customer only says hello. Jular's top 3
+# entry questions (email from Jular, 2026-10-23). Titles: max 20 characters.
+welcome_menu:
+  - title: Procuro um produto
+    about: >-
+      They are looking for a product or solution (flooring, cladding, decks, boards,
+      structures, modular houses). Ask what it is for (interior or exterior, which space)
+      and help them find it.
+  - title: Comprar ou orçamento
+    about: >-
+      They want to know how to buy, see prices or technical information, or ask for a
+      quote. Explain the online shop and the showrooms, and offer a quote from the team.
+  - title: Lojas e contactos
+    about: >-
+      They want showroom locations, opening hours or personal help with a project. Ask
+      which region they are in and give the nearest branch, its hours and contacts.
 # WA-028: customers with no activity for this many months are deleted by a daily job.
 privacy:
   retention_months: 24

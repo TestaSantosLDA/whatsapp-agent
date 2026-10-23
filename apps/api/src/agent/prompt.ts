@@ -185,6 +185,12 @@ export function turnContext(input: {
     lines.push(
       `This is the customer's first message. Start by saying, in one short sentence, that you are ${client.name}'s automated assistant${privacy} and that they can ask for a colleague at any time. Then answer.`,
     );
+    if (client.welcome_menu) {
+      const menu = client.welcome_menu.map((m) => `- "${m.title}": ${m.about}`).join('\n');
+      lines.push(
+        `If this first message is only a greeting or has no clear question, ask how you can help and call offer_choices with exactly these options (translated if the customer writes in another language), then follow the meaning of the one they tap:\n${menu}\nIf it already asks something, answer it and do not show the menu.`,
+      );
+    }
   }
   if (input.customer?.length) lines.push(...input.customer);
   return lines.join('\n');

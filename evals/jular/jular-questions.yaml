@@ -1,0 +1,117 @@
+# WA-032: Jular's top 3 entry questions (welcome menu) and real customer questions Jular
+# sent on 2026-10-23. Cases marked "to confirm" check the agent does not invent the answer
+# while Jular's reply is pending; update their rubric once clients/jular.yaml has it.
+- id: welcome-menu-greeting-pt
+  title: Saudação mostra o menu de boas-vindas
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Boa tarde
+    - { tap: Lojas e contactos }
+    - Moro no Porto.
+  checks:
+    tools_called: [offer_choices]
+    must_include: ['Procuro um produto', 'Comprar ou orçamento', 'Maia']
+    lead: none
+    status: bot
+  rubric: >-
+    The first reply introduces the automated assistant in one sentence and offers the three
+    menu buttons (Procuro um produto, Comprar ou orçamento, Lojas e contactos). After the tap,
+    asks the region, then gives the Maia branch (nearest to Porto) with its address, opening
+    hours and contacts. European Portuguese, short.
+
+- id: welcome-menu-greeting-en
+  title: A greeting in English shows the menu translated
+  use_case: faq
+  language: en
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Hello!
+  checks:
+    tools_called: [offer_choices]
+    must_not_include: ['Procuro um produto']
+  rubric: >-
+    Replies in English, introduces the automated assistant and offers the three menu options
+    translated to English (looking for a product, buying or a quote, stores and contacts).
+
+- id: welcome-menu-skipped-pt
+  title: Pergunta direta não mostra o menu
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Olá, que métodos de pagamento aceitam?
+  checks:
+    must_include: ['MB Way']
+    must_not_include: ['Comprar ou orçamento', 'Lojas e contactos']
+  rubric: >-
+    Answers the payment question straight away (MB Way, Multibanco, Payshop, bank transfer)
+    without showing the welcome menu.
+
+- id: jular-q-typologies-pt
+  title: Tipologias das casas modulares
+  use_case: treehouse
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Que tipologias estão disponíveis para as casas modulares?
+  checks:
+    must_include: ['T1', 'T2', 'Spot', 'Douro']
+    lead: none
+  rubric: >-
+    Lists the Treehouse models with their typology and price (Spot T1A, SW T2A, Douro T2, VAT
+    included), mentions the 22 m² modules, and asks one qualifying question or offers the
+    Azambuja showroom. Does not invent other typologies. European Portuguese.
+
+- id: jular-q-prices-pt
+  title: Onde ver os preços dos materiais
+  use_case: faq
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Onde posso ter acesso aos vossos preços de materiais?
+  checks:
+    must_include: ['loja.jular.pt']
+    lead: none
+  rubric: >-
+    Points to the online shop (loja.jular.pt) for prices with IVA, says the shop has a selection
+    and showroom prices can differ, and offers to look up a product or ask for a quote for
+    products not online. European Portuguese.
+
+- id: jular-q-deck-install-pt
+  title: Instalam deck ou só fornecem (a confirmar)
+  use_case: guardrails
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Gostaria de saber se instalam deck ou se só fornecem o material?
+  rubric: >-
+    Jular has not said yet whether it installs decks. The agent must not claim that it installs
+    or that it only supplies; it says the material is available (may offer to show decks) and
+    that installation is confirmed by a colleague, offering one. European Portuguese.
+
+- id: jular-q-pavilions-pt
+  title: Fazem pavilhões ou só fornecem madeira (a confirmar)
+  use_case: guardrails
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Fazem pavilhões ou só fornecem as madeiras?
+  rubric: >-
+    Says Jular's engineering line works on Kerto pavilions with spans up to 40 m, sold per
+    project. Does not claim Jular builds or assembles them on site, nor that it only supplies;
+    offers the engineering team to discuss the project. European Portuguese.
+
+- id: jular-q-house-foundations-pt
+  title: Casas suspensas ou com fundação (a confirmar)
+  use_case: treehouse
+  language: pt-PT
+  now: '2026-10-20T10:30:00+01:00'
+  turns:
+    - Gostaria de saber se as vossas casas ficam suspensas no ar, ou precisam de uma estrutura de betão por baixo?
+  rubric: >-
+    Says foundation works are done on site while the house is built in the factory (step 5 of
+    the process), and that the type of foundation is confirmed by the Treehouse team for each
+    plot. Does not state a foundation type (slab, piles, stilts) as fact. Asks whether they have
+    land or offers the team. European Portuguese.
