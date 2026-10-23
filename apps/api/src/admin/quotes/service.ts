@@ -18,7 +18,7 @@ import {
   type QuoteSend,
   type SendQuoteBody,
 } from '@wa/shared';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import type { Db } from '../../db/index.js';
 import {
   contacts,
@@ -57,6 +57,12 @@ export function quotePrefix(client: ClientConfig): string {
       'ORC')
   );
 }
+
+/**
+ * How long a quote's public PDF link works after a WhatsApp send. WhatsApp fetches the document
+ * when it is sent; the link (name, NIF, address, prices) should not outlive a forwarded message.
+ */
+export const QUOTE_LINK_DAYS = 14;
 
 export const quoteFilename = (number: string) => `Orcamento-${number}.pdf`;
 
@@ -215,14 +221,14 @@ export class QuotesService {
     };
   }
 
-  /** The PDF behind a sent quote's public link (for WhatsApp), or undefined. */
+  /** The PDF behind a sent quote's public link (for WhatsApp), or undefined once it expired. */
   async publicPdf(token: string): Promise<{ filename: string; content: Uint8Array } | undefined> {
     if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return undefined;
     const [file] = await this.deps.db
       .select({ filename: quotePdfs.filename, content: quotePdfs.content })
       .from(quotes)
       .innerJoin(quotePdfs, eq(quotePdfs.quoteId, quotes.id))
-      .where(eq(quotes.publicToken, token));
+      .where(and(eq(quotes.publicToken, token), gt(quotes.publicTokenExpiresAt, this.now())));
     return file;
   }
 
@@ -287,6 +293,16 @@ export class QuotesService {
 
     if (body.channel === 'whatsapp') {
       const base = this.deps.publicBaseUrl.replace(/\/+$/, '');
+      // Each WhatsApp send gets a fresh link, valid for QUOTE_LINK_DAYS.
+      const [linked] = await this.deps.db
+        .update(quotes)
+        .set({
+          publicToken: randomBytes(24).toString('base64url'),
+          publicTokenExpiresAt: new Date(now.getTime() + QUOTE_LINK_DAYS * 86_400_000),
+        })
+        .where(eq(quotes.id, row.id))
+        .returning();
+      row = linked!;
       try {
         await this.deps.messages.send(
           client,
@@ -346,7 +362,7 @@ export class QuotesService {
     return this.toDetail(ctx, updated!);
   }
 
-  /** Draft → sent: renders the final PDF once and keeps it, with a public link token. */
+  /** Draft → sent: renders the final PDF once and keeps it. */
   private async lock(client: ClientConfig, row: QuoteRow, now: Date): Promise<QuoteRow> {
     const content = await this.render(client, row, now, false);
     return this.deps.db.transaction(async (tx) => {
@@ -355,7 +371,6 @@ export class QuotesService {
         .set({
           status: 'sent',
           sentAt: now,
-          publicToken: randomBytes(24).toString('base64url'),
         })
         .where(and(eq(quotes.id, row.id), eq(quotes.status, 'draft')))
         .returning();

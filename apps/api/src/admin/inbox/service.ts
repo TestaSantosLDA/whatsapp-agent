@@ -59,6 +59,8 @@ export interface InboxDeps {
    * email (a customer often sends several in a row). A handoff always alerts. Default 10 minutes.
    */
   alertThrottleMs?: number;
+  /** How often an open stream checks the member again (see `streamAllowed`). Default 1 minute. */
+  streamRecheckMs?: number;
 }
 
 const memberRef = (m: Pick<TeamMemberRow, 'id' | 'name' | 'email'>): InboxMemberRef => ({
@@ -73,9 +75,26 @@ export class InboxService {
   private readonly chains = new Map<string, Promise<void>>();
   private readonly lastAlert = new Map<string, number>();
   private readonly throttleMs: number;
+  /** See InboxDeps.streamRecheckMs; tests lower it. */
+  streamRecheckMs: number;
 
   constructor(private readonly deps: InboxDeps) {
     this.throttleMs = deps.alertThrottleMs ?? 10 * 60_000;
+    this.streamRecheckMs = deps.streamRecheckMs ?? 60_000;
+  }
+
+  /**
+   * Whether a stream opened with `ctx` may stay open: the token has not expired (`expiresAt`, ms)
+   * and the member is still on the team with the same role and branches. A stream keeps the
+   * context it opened with, so when this turns false it closes and the dashboard reconnects with
+   * a fresh token and scope (or gets 401/403).
+   */
+  async streamAllowed(ctx: AdminContext, expiresAt: number, now = Date.now()): Promise<boolean> {
+    if (now >= expiresAt) return false;
+    const member = await this.deps.team.resolve(ctx.user, ctx.client.id);
+    if (!member || member.id !== ctx.member.id || member.role !== ctx.member.role) return false;
+    const same = (a: string[], b: string[]) => [...a].sort().join() === [...b].sort().join();
+    return same(member.branches, ctx.member.branches);
   }
 
   /** Starts listening to the chat and back-office buses. Returns a stop function. */

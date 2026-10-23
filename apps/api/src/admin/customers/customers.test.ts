@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ClientConfig, CustomerDetail, CustomerList, PrivacyActionResult } from '@wa/shared';
 import { isSensitiveText, parseProfileValue } from '@wa/shared';
-import { and, eq } from 'drizzle-orm';
+import { readdirSync, readFileSync } from 'node:fs';
+import { and, eq, sql } from 'drizzle-orm';
 import { unzipSync, strFromU8 } from 'fflate';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ClaudeResponder, type ToolCallRecord } from '../../agent/claude-responder.js';
@@ -578,6 +579,41 @@ describe('customer records in the dashboard', () => {
     expect(turnContextOf(s.claude.bodies.at(-1)!)).not.toContain('509999999');
   });
 
+  it('makes the record with the contact; listing writes nothing; older contacts get one from the backfill', async () => {
+    const s = await setup();
+    // A number that writes gets its record straight away, before any agent turn.
+    const rui = await s.t.messages.upsertContact('acme', '351966000111', 'Rui');
+    expect(rui.customerId).not.toBeNull();
+    expect((await s.contactOf('351966000111')).customerId).toBe(rui.customerId);
+
+    // A contact from before customer records: the list read does not create its record.
+    const [old] = await s.t.db
+      .insert(contacts)
+      .values({ clientId: 'acme', waId: '351966000222', name: 'Antigo' })
+      .returning();
+    const before = await s.t.db.select().from(customers);
+    expect((await s.api<CustomerList>('')).items.map((c) => c.name)).toEqual(['Rui']);
+    expect(await s.t.db.select().from(customers)).toEqual(before);
+    expect((await s.contactOf('351966000222')).customerId).toBeNull();
+
+    // The migration's one set-based backfill gives it (and only it) a record.
+    const dir = new URL('../../../drizzle/', import.meta.url);
+    const file = readdirSync(dir).find((f) => f.startsWith('0003_'))!;
+    const migration = readFileSync(new URL(file, dir), 'utf8');
+    const backfill = migration.split('--> statement-breakpoint').at(-1)!;
+    expect(backfill).toContain('WA-027 backfill');
+    await s.t.db.execute(sql.raw(backfill));
+    const filled = await s.contactOf('351966000222');
+    expect(filled.customerId).not.toBeNull();
+    const [record] = await s.t.db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, filled.customerId!));
+    expect(record).toMatchObject({ clientId: 'acme', createdAt: old!.createdAt });
+    expect((await s.t.db.select().from(customers)).length).toBe(before.length + 1);
+    expect((await s.contactOf('351966000111')).customerId).toBe(rui.customerId);
+  });
+
   it('shows sales only the records with a lead on their branches', async () => {
     const s = await setup();
     const { contact, customerId } = await firstConversation(s);
@@ -608,6 +644,56 @@ describe('customer records in the dashboard', () => {
     const detail = await s.api<CustomerDetail>(`/${customerId}`, {}, 200, porto.token);
     expect(detail.leads.map((l) => l.branchId)).toEqual(['porto']);
     expect(detail.quotes.map((q) => q.number)).toEqual(['ACME-2026-0001']);
+  });
+
+  it('does not let sales move a number out of a record they cannot see', async () => {
+    const s = await setup();
+    const { contact, customerId } = await firstConversation(s);
+    await s.api(
+      `/${customerId}/notes`,
+      { method: 'POST', body: JSON.stringify({ body: 'nota privada lisboa' }) },
+      201,
+    );
+    s.claude.script.push(say('Olá Rita!'));
+    const RITA = { phone: '351934555666', name: 'Rita Faria' };
+    await s.send(RITA, 'Olá');
+    const rita = await s.contactOf(RITA.phone);
+    await s.t.db.insert(leads).values([
+      { clientId: 'acme', contactId: contact.id, type: 'quote', branchId: 'lisboa', fields: {} },
+      { clientId: 'acme', contactId: rita.id, type: 'quote', branchId: 'porto', fields: {} },
+    ]);
+    const porto = await s.t.member('acme', {
+      email: 'porto@example.invalid',
+      role: 'sales',
+      branches: ['porto'],
+    });
+    await s.api(`/${customerId}`, {}, 403, porto.token);
+    const refused = await s.api<{ error: string }>(
+      `/${rita.customerId}/contacts`,
+      { method: 'POST', body: JSON.stringify({ phone: CARLOS.phone }) },
+      403,
+      porto.token,
+    );
+    expect(refused.error).toBe('forbidden_branch');
+    expect((await s.contactOf(CARLOS.phone)).customerId).toBe(customerId);
+    const lisboa = await s.api<CustomerDetail>(`/${customerId}`);
+    expect(lisboa.notes.map((n) => n.body)).toEqual(['nota privada lisboa']);
+
+    // Once Carlos's record has a Porto lead, Porto may link his number; an admin always may.
+    await s.t.db.insert(leads).values({
+      clientId: 'acme',
+      contactId: contact.id,
+      type: 'info',
+      branchId: 'porto',
+      fields: {},
+    });
+    const moved = await s.api<CustomerDetail>(
+      `/${rita.customerId}/contacts`,
+      { method: 'POST', body: JSON.stringify({ phone: CARLOS.phone }) },
+      200,
+      porto.token,
+    );
+    expect(moved.contacts.map((c) => c.phone).sort()).toEqual([CARLOS.phone, RITA.phone]);
   });
 
   it('keeps each client’s customers apart, even with the same number', async () => {

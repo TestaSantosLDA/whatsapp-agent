@@ -1,5 +1,5 @@
 {
-  "id": "e076d131-36d0-452e-9918-1f4b6db6b139",
+  "id": "71fdf507-25e2-4d63-b1b2-247830608da5",
   "prevId": "cd5951dd-7933-400e-b4e5-de31e4756089",
   "version": "7",
   "dialect": "postgresql",
@@ -2742,6 +2742,12 @@
         "public_token": {
           "name": "public_token",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "public_token_expires_at": {
+          "name": "public_token_expires_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },

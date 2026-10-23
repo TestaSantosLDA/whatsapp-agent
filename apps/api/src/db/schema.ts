@@ -511,6 +511,8 @@ export const quotes = pgTable(
     sends: jsonb('sends').$type<Record<string, unknown>[]>().notNull().default([]),
     /** Unguessable part of the PDF's public link (WhatsApp fetches the document from it). */
     publicToken: text('public_token'),
+    /** The public link stops working then (QUOTE_LINK_DAYS after the last WhatsApp send). */
+    publicTokenExpiresAt: timestamp('public_token_expires_at', { withTimezone: true }),
     createdBy: uuid('created_by').references(() => teamMembers.id, { onDelete: 'set null' }),
     updatedBy: uuid('updated_by').references(() => teamMembers.id, { onDelete: 'set null' }),
     sentAt: timestamp('sent_at', { withTimezone: true }),

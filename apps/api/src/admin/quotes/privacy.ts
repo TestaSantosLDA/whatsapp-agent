@@ -90,6 +90,7 @@ export const quotesHandler: PersonalDataHandler = {
           fulfilment: null,
           notes: null,
           publicToken: null,
+          publicTokenExpiresAt: null,
           // Keep when and how it was sent, not where to.
           sends: (r.sends as Record<string, unknown>[]).map((s) => ({ ...s, to: '' })),
         })

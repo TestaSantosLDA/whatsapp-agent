@@ -13,7 +13,16 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EventBus } from '../bus.js';
 import { ClaudeResponder } from '../agent/claude-responder.js';
-import { agentRuns, contacts, conversations, leads, messages, outbox } from '../db/schema.js';
+import {
+  agentRuns,
+  contacts,
+  conversations,
+  leadEvents,
+  leadNotes,
+  leads,
+  messages,
+  outbox,
+} from '../db/schema.js';
 import * as schema from '../db/schema.js';
 import type { Db } from '../db/index.js';
 import type { Responder } from '../jobs/process-conversation.js';
@@ -143,6 +152,19 @@ async function setup(extra: Step[] = []) {
     status: 'received',
   });
   const admin = await t.member('acme', { email: 'admin@example.invalid', role: 'admin' });
+  // The team's note on her lead (WA-024), and a history entry with text about her.
+  const [anaLead] = await t.db.select().from(leads).where(eq(leads.contactId, ana!.id));
+  const noted = await t.call(`/api/admin/clients/acme/leads/${anaLead!.id}/notes`, admin.token, {
+    method: 'POST',
+    body: JSON.stringify({ body: `Liguei à ${ANA.name} para o ${ANA.phone.slice(3)}.` }),
+  });
+  expect(noted.status, await noted.clone().text()).toBeLessThan(300);
+  await t.db.insert(leadEvents).values({
+    clientId: 'acme',
+    leadId: anaLead!.id,
+    kind: 'status',
+    data: { from: 'new', to: 'lost', lostReason: 'other', comment: `${ANA.name} desistiu` },
+  });
   const base = '/api/admin/clients/acme/privacy';
   const json = async <T>(path: string, init: RequestInit = {}) => {
     const res = await t.call(`${base}${path}`, admin.token, init);
@@ -177,11 +199,22 @@ async function findAnywhere(db: Db, needles: string[]) {
 const anaNeedles = [ANA.phone, ANA.phone.slice(3), ANA.name, 'Quintela', ANA.email];
 
 describe('schema coverage', () => {
-  it('every table linked to a contact or a conversation has a personal data handler', () => {
+  it('every table linked to a contact, conversation, customer record or lead has a personal data handler', () => {
     expect(tablesWithoutHandler(schema, personalDataHandlers)).toEqual([]);
     const names = personalTables(schema).map((t) => getTableConfig(t).name);
     expect(names).toEqual(
-      expect.arrayContaining(['contacts', 'conversations', 'messages', 'leads', 'outbox']),
+      expect.arrayContaining([
+        'contacts',
+        'conversations',
+        'messages',
+        'leads',
+        'outbox',
+        'lead_notes',
+        'lead_events',
+        'customer_notes',
+        'customer_profile_fields',
+        'quote_pdfs',
+      ]),
     );
     expect(names).not.toContain('products');
   });
@@ -196,9 +229,30 @@ describe('schema coverage', () => {
       id: uuid('id').primaryKey(),
       ownerId: uuid('owner_id').references(() => contacts.id),
     });
-    expect(tablesWithoutHandler({ ...schema, notes, docs }, personalDataHandlers)).toEqual([
+    // Linked to a lead or a customer record by a foreign key only, or through another such table.
+    const leadFiles = pgTable('lead_files_example', {
+      id: uuid('id').primaryKey(),
+      ref: uuid('ref').references(() => leads.id),
+    });
+    const fileParts = pgTable('lead_file_parts_example', {
+      id: uuid('id').primaryKey(),
+      fileRef: uuid('file_ref').references(() => leadFiles.id),
+    });
+    const tags = pgTable('customer_tags_example', {
+      id: uuid('id').primaryKey(),
+      customerId: uuid('customer_id'),
+    });
+    expect(
+      tablesWithoutHandler(
+        { ...schema, notes, docs, leadFiles, fileParts, tags },
+        personalDataHandlers,
+      ),
+    ).toEqual([
       'lead_notes_example',
       'documents_example',
+      'lead_files_example',
+      'lead_file_parts_example',
+      'customer_tags_example',
     ]);
   });
 });
@@ -232,6 +286,8 @@ describe('privacy tools', () => {
       leads: { fields: Record<string, unknown> }[];
       emails: { body: string }[];
       agent_runs: { toolCalls: unknown }[];
+      lead_notes: { body: string }[];
+      lead_events: { kind: string; data: Record<string, unknown> }[];
     };
     expect(data.contacts).toEqual([expect.objectContaining({ phone: ANA.phone, name: ANA.name })]);
     expect(data.conversations).toHaveLength(1);
@@ -251,6 +307,10 @@ describe('privacy tools', () => {
     expect(data.emails).toHaveLength(1);
     expect(data.emails[0]!.body).toContain(ANA.name);
     expect(JSON.stringify(data.agent_runs)).toContain(ANA.email);
+    expect(data.lead_notes).toEqual([
+      expect.objectContaining({ body: expect.stringContaining(ANA.name) }),
+    ]);
+    expect(data.lead_events.map((e) => e.kind)).toEqual(expect.arrayContaining(['note', 'status']));
 
     const audit = await json<PrivacyAuditEntry[]>('/audit');
     expect(audit).toEqual([
@@ -274,6 +334,7 @@ describe('privacy tools', () => {
   it('deletes a customer after typed confirmation: nothing with their phone or name remains', async () => {
     const { t, ana, bruno, json, base, admin } = await setup();
     const leadsBefore = await t.db.select().from(leads).orderBy(leads.createdAt);
+    const [anaLead] = leadsBefore.filter((l) => l.contactId === ana.id);
     const runsBefore = (await t.db.select().from(agentRuns)).length;
     expect(await findAnywhere(t.db, anaNeedles)).not.toEqual([]);
 
@@ -294,8 +355,15 @@ describe('privacy tools', () => {
       messages: 3,
       emails: 1,
       leads_anonymised: 1,
+      lead_notes: 1,
     });
     expect(counts.agent_runs_anonymised).toBeGreaterThan(0);
+    expect(counts.lead_events).toBeGreaterThan(0);
+    expect(await t.db.select().from(leadNotes)).toEqual([]);
+    // The lead's history may hold text about her: it goes too (Bruno's stays).
+    const events = await t.db.select().from(leadEvents);
+    expect(events.filter((e) => e.leadId === anaLead!.id)).toEqual([]);
+    expect(events.length).toBeGreaterThan(0);
 
     expect(await findAnywhere(t.db, anaNeedles)).toEqual([]);
 
@@ -335,6 +403,23 @@ describe('privacy tools', () => {
     });
     expect((await t.call(`${base}/customers`, sales.token)).status).toBe(403);
     expect((await t.call(`${base}/requests`, sales.token)).status).toBe(403);
+  });
+
+  it('answers 404 to ids that are not UUIDs', async () => {
+    const { t, base, admin } = await setup();
+    const calls: [string, RequestInit?][] = [
+      ['/customers/abc'],
+      ['/customers/abc/export'],
+      ['/customers/abc/clear-profile', { method: 'POST' }],
+      ['/customers/abc/delete', { method: 'POST', body: JSON.stringify({ confirm: 'Ana' }) }],
+      ['/requests/abc/approve', { method: 'POST', body: JSON.stringify({}) }],
+      ['/requests/abc/reject', { method: 'POST' }],
+    ];
+    for (const [path, init] of calls) {
+      const res = await t.call(`${base}${path}`, admin.token, init);
+      expect(res.status, path).toBe(404);
+      expect(((await res.json()) as { error: string }).error).toBe('not_found');
+    }
   });
 });
 
@@ -467,6 +552,51 @@ describe('retention', () => {
     expect(await findAnywhere(t.db, anaNeedles)).toEqual([]);
     const [entry] = await json<PrivacyAuditEntry[]>('/audit');
     expect(entry).toMatchObject({ action: 'retention_delete', actor: null });
+  });
+
+  it('keeps a customer record while any of its numbers is active, then deletes it whole', async () => {
+    const { t, ana, json } = await setup();
+    // Ana's old number is idle past the period; her new number on the same record wrote today.
+    await t.db
+      .update(contacts)
+      .set({ createdAt: monthsAgo(30) })
+      .where(eq(contacts.id, ana.id));
+    await t.db
+      .update(conversations)
+      .set({ lastActivityAt: monthsAgo(25) })
+      .where(eq(conversations.contactId, ana.id));
+    const [record] = await t.db
+      .select({ customerId: contacts.customerId })
+      .from(contacts)
+      .where(eq(contacts.id, ana.id));
+    const work = await t.messages.upsertContact('acme', '351966111222', ANA.name);
+    await t.db
+      .update(contacts)
+      .set({ customerId: record!.customerId })
+      .where(eq(contacts.id, work.id));
+    await t.messages.openConversation('acme', work.id);
+
+    expect((await json<PrivacyRetentionView>('/retention')).due).toEqual([]);
+    expect(await t.privacy.runRetention(client)).toEqual({ deleted: 0 });
+    expect((await t.db.select().from(contacts)).map((c) => c.id)).toEqual(
+      expect.arrayContaining([ana.id, work.id]),
+    );
+
+    // Once the new number is idle too, both numbers are due and go together.
+    await t.db
+      .update(conversations)
+      .set({ lastActivityAt: monthsAgo(25) })
+      .where(eq(conversations.contactId, work.id));
+    await t.db
+      .update(contacts)
+      .set({ createdAt: monthsAgo(25) })
+      .where(eq(contacts.id, work.id));
+    const due = (await json<PrivacyRetentionView>('/retention')).due.map((d) => d.contactId);
+    expect(due.sort()).toEqual([ana.id, work.id].sort());
+    expect(await t.privacy.runRetention(client)).toEqual({ deleted: 1 });
+    const left = (await t.db.select().from(contacts)).map((c) => c.id);
+    expect(left).not.toContain(ana.id);
+    expect(left).not.toContain(work.id);
   });
 
   it('follows the client setting', async () => {

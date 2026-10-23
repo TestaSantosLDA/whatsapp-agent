@@ -508,7 +508,8 @@ describe('overview after a demo run', () => {
     expect(email.body).toContain('Conversas: 4');
     expect(email.body).toContain('Passagens para a equipa: 2');
     expect(email.body).toContain('Deck: 1 pergunta');
-    expect(email.body).toContain('Vendem telhas cerâmicas?');
+    // Topics and counts only: no customer's words in an email that stays in the outbox.
+    expect(JSON.stringify(email)).not.toContain('Vendem telhas cerâmicas?');
     expect(email.body).toContain('http://test.local/admin/overview');
   });
 

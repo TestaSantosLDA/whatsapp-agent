@@ -27,11 +27,7 @@ import {
   removeField,
   setFromTeam,
 } from '../../customers/profile.js';
-import {
-  contactIdsOfCustomer,
-  ensureAllCustomers,
-  ensureCustomer,
-} from '../../customers/records.js';
+import { contactIdsOfCustomer, ensureCustomer } from '../../customers/records.js';
 import type { Db } from '../../db/index.js';
 import {
   contacts,
@@ -126,8 +122,8 @@ export class CustomersService {
   }
 
   async list(ctx: AdminContext, f: CustomerFilters): Promise<CustomerList> {
+    // Read-only: records are made with the contact (see customers/records.ts).
     const db = this.deps.db;
-    await ensureAllCustomers(db, ctx.client.id);
     const conditions: (SQL | undefined)[] = [
       eq(customers.clientId, ctx.client.id),
       hasContacts,
@@ -446,7 +442,8 @@ export class CustomersService {
    * Links a WhatsApp number to the record. A number that has not written yet becomes a contact;
    * a number of another record moves here, and that record, left without numbers, is merged in
    * (notes, missing record fields and profile fields). If a number objected to profiling, the
-   * merged record's profile is removed.
+   * merged record's profile is removed. Sales may only take a number from a record they can see
+   * (403 otherwise), so linking cannot get around branch scoping.
    */
   async linkContact(ctx: AdminContext, id: string, phone: string) {
     const record = await this.record(ctx, id);
@@ -462,6 +459,13 @@ export class CustomersService {
         (await t.insert(contacts).values({ clientId: ctx.client.id, waId: phone }).returning())[0]!;
       if (contact.customerId === record.id) return;
       const from = contact.customerId;
+      if (existing && !(await this.sourceVisible(t, ctx, existing.id, from))) {
+        throw adminError(
+          403,
+          'forbidden_branch',
+          'Este número pertence a um cliente sem pedidos das suas filiais.',
+        );
+      }
       await t.update(contacts).set({ customerId: record.id }).where(eq(contacts.id, contact.id));
       if (from) await this.mergeIfEmpty(t, ctx.client, from, record);
       if (contact.profilingOptOut) {
@@ -472,6 +476,24 @@ export class CustomersService {
       await t.update(customers).set({ updatedAt: this.now() }).where(eq(customers.id, record.id));
     });
     return this.detail(ctx, record.id);
+  }
+
+  /** Whether the member may see the record (or, without one, the contact) a number belongs to. */
+  private async sourceVisible(
+    db: Db,
+    ctx: AdminContext,
+    contactId: string,
+    customerId: string | null,
+  ): Promise<boolean> {
+    if (isAdmin(ctx)) return true;
+    const owner = customerId ? sql`c.customer_id = ${customerId}` : sql`c.id = ${contactId}`;
+    const [row] = await db
+      .select({
+        visible: sql<boolean>`exists (select 1 from leads l join contacts c on c.id = l.contact_id where c.client_id = ${ctx.client.id} and ${owner} and ${this.leadScope(ctx)})`,
+      })
+      .from(contacts)
+      .where(eq(contacts.id, contactId));
+    return Boolean(row?.visible);
   }
 
   private async mergeIfEmpty(db: Db, client: ClientConfig, fromId: string, into: CustomerRow) {

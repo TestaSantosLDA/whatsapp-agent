@@ -754,6 +754,30 @@ describe('a demo deck lead, end to end', () => {
       data: { quoteId: q.id, number: q.number, channel: 'whatsapp', totalCents: 194076 },
     });
 
+    // The link expires 14 days after the send; sending by WhatsApp again issues a new one.
+    const [locked] = await t.db.select().from(quotes).where(eq(quotes.id, q.id));
+    const days = (locked!.publicTokenExpiresAt!.getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(13.9);
+    expect(days).toBeLessThanOrEqual(14);
+    await t.db
+      .update(quotes)
+      .set({ publicTokenExpiresAt: new Date(Date.now() - 1000) })
+      .where(eq(quotes.id, q.id));
+    expect((await t.app.request(link.pathname)).status).toBe(404);
+    await t.json<QuoteDetail>(
+      t.api(`/${q.id}/send`, t.sales.token, {
+        method: 'POST',
+        body: JSON.stringify({ channel: 'whatsapp' }),
+      }),
+    );
+    const again = (await t.messages.history('acme', phone)).messages.at(-1)!;
+    const newLink = new URL(
+      (again.payload as Extract<MetaSendMessage, { type: 'document' }>).document.link,
+    );
+    expect(newLink.pathname).not.toBe(link.pathname);
+    expect((await t.app.request(newLink.pathname)).status).toBe(200);
+    expect((await t.app.request(link.pathname)).status).toBe(404);
+
     // Sending again delivers the same PDF; a won lead is not moved back.
     await t.db.update(leads).set({ status: 'won' }).where(eq(leads.id, lead!.id));
     await t.json<QuoteDetail>(

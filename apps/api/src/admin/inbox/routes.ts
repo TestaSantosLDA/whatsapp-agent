@@ -2,7 +2,8 @@
  * /api/admin/clients/:clientId/inbox (WA-023): the team's conversations.
  *
  *   GET  /                ?view=human|mine|all&branch=   list, newest first (InboxList)
- *   GET  /stream          SSE: list rows that changed (InboxEvent), in the member's scope
+ *   GET  /stream          SSE: list rows that changed (InboxEvent), in the member's scope; it
+ *                         closes once the token expires or the member is removed or re-scoped
  *   GET  /:id             transcript, leads and order drafts (InboxConversationDetail)
  *   POST /:id/read        the team has read it (unread badge)
  *   POST /:id/takeover    status human, assigned to me: the agent stays silent
@@ -13,7 +14,9 @@
 import { inboxAssignSchema, inboxReplySchema, inboxViewSchema, type InboxEvent } from '@wa/shared';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
+import { decodeJwt } from 'jose';
 import { SseQueue } from '../../routes/simulator.js';
+import { bearerToken } from '../auth.js';
 import { adminError, parseBody, type AdminEnv } from '../context.js';
 import type { AdminDeps } from '../deps.js';
 
@@ -29,13 +32,28 @@ export function inboxRoutes({ inbox }: AdminDeps) {
 
   routes.get('/stream', (c) => {
     const ctx = c.get('admin');
+    // The router verified the token, so it has an `exp`.
+    const expiresAt = (decodeJwt(bearerToken(c.req)!).exp ?? 0) * 1000;
     return streamSSE(c, async (stream) => {
       const events = new SseQueue<InboxEvent>(stream, (push) =>
         inbox.bus.subscribe(ctx.client.id, (event) => {
           if (inbox.visible(ctx, event.conversation)) push(event);
         }),
       );
-      await events.run();
+      // The stream keeps the context it opened with: check the member again now and then.
+      const recheck = setInterval(() => {
+        inbox.streamAllowed(ctx, expiresAt).then(
+          (ok) => {
+            if (!ok) stream.abort();
+          },
+          (error: unknown) => console.error('[inbox] stream recheck failed', error),
+        );
+      }, inbox.streamRecheckMs);
+      try {
+        await events.run();
+      } finally {
+        clearInterval(recheck);
+      }
     });
   });
 

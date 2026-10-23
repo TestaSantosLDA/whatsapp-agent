@@ -2,8 +2,9 @@
  * Personal data handlers (WA-028). Every table that holds data about a customer registers a
  * handler that can export it and erase it; the privacy tools (export, clear profile, delete,
  * retention) only ever go through these handlers, so a feature that adds a table adds its handler
- * next to it and lists it in privacy/handlers.ts. A test fails when a table with a `contact_id`
- * or `conversation_id` column, or a foreign key to contacts or conversations, has no handler.
+ * next to it and lists it in privacy/handlers.ts. A test fails when a table linked to a contact,
+ * conversation, customer record or lead (by a `*_id` column or a foreign key, followed through
+ * other personal tables) has no handler.
  */
 import type { ClientConfig } from '@wa/shared';
 import { is } from 'drizzle-orm';
@@ -69,20 +70,42 @@ export interface PersonalDataHandler {
   clearProfile?(ctx: PrivacyContext): Promise<number>;
 }
 
-/** Tables that may hold data about a customer: linked to a contact or a conversation. */
+/** Tables that hold data about a customer by definition. */
+const SUBJECT_TABLES = ['contacts', 'conversations', 'customers', 'leads'];
+
+/** Columns that link a row to a customer, whether or not they carry a foreign key. */
+const SUBJECT_COLUMNS = ['contact_id', 'conversation_id', 'customer_id', 'lead_id'];
+
+/**
+ * Tables that may hold data about a customer: contacts, conversations, customer records and leads,
+ * a table with a column linking to one of them, and, following foreign keys, every table that
+ * references a table already found (e.g. a lead's notes, a quote's lines).
+ */
 export function personalTables(schema: Record<string, unknown>): PgTable[] {
   const tables = Object.values(schema).filter((v): v is PgTable => is(v, PgTable));
-  const linked = new Set(['contacts', 'conversations']);
-  return tables.filter((table) => {
-    const config = getTableConfig(table);
-    if (linked.has(config.name)) return true;
-    if (config.columns.some((c) => c.name === 'contact_id' || c.name === 'conversation_id')) {
-      return true;
+  const found = new Set<string>(
+    tables
+      .map((t) => getTableConfig(t))
+      .filter(
+        (config) =>
+          SUBJECT_TABLES.includes(config.name) ||
+          config.columns.some((c) => SUBJECT_COLUMNS.includes(c.name)),
+      )
+      .map((config) => config.name),
+  );
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const table of tables) {
+      const config = getTableConfig(table);
+      if (found.has(config.name)) continue;
+      const refs = config.foreignKeys.map((fk) => getTableConfig(fk.reference().foreignTable).name);
+      if (refs.some((name) => found.has(name))) {
+        found.add(config.name);
+        grew = true;
+      }
     }
-    return config.foreignKeys.some((fk) =>
-      linked.has(getTableConfig(fk.reference().foreignTable).name),
-    );
-  });
+  }
+  return tables.filter((t) => found.has(getTableConfig(t).name));
 }
 
 /** Names of personal tables that no handler covers. */

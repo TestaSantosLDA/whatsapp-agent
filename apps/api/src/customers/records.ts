@@ -1,7 +1,8 @@
 /**
  * Customer records (WA-027): every WhatsApp contact belongs to one record (contacts.customer_id),
- * created the first time it is needed (an agent turn, the dashboard). One record can hold several
- * numbers of the same person or company. Every query is scoped by client: a record, its numbers
+ * created with the contact (MessageService.upsertContact; older contacts got theirs in migration
+ * 0003), or, for a contact made another way, the first time it is needed (an agent turn, the
+ * inbox's customer card). One record can hold several numbers of the same person or company. Every query is scoped by client: a record, its numbers
  * and its profile belong to one client and are never read for another.
  */
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -39,17 +40,6 @@ export async function ensureCustomer(
       .where(eq(contacts.id, contactId));
     return again?.customerId ?? undefined;
   });
-}
-
-/** Gives every contact of the client without a record its own (for the dashboard's list). */
-export async function ensureAllCustomers(db: Db, clientId: string): Promise<number> {
-  const missing = await db
-    .select({ id: contacts.id })
-    .from(contacts)
-    .where(and(eq(contacts.clientId, clientId), isNull(contacts.customerId)))
-    .limit(5000);
-  for (const { id } of missing) await ensureCustomer(db, clientId, id);
-  return missing.length;
 }
 
 /** The record's contact ids, oldest first. */

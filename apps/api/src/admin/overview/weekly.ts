@@ -98,8 +98,6 @@ export function formatMinutes(minutes: number | null): string {
 }
 
 const money = (usd: number) => `${usd.toFixed(2)} USD`;
-/** Customers' words are quoted short in an email. */
-const short = (text: string) => (text.length > 120 ? `${text.slice(0, 119)}…` : text);
 
 export function weeklyEmail(
   client: ClientConfig,
@@ -127,9 +125,10 @@ export function weeklyEmail(
   if (f.cost) rows.push(['Custo do Claude', money(f.cost.totalUsd)]);
   const top = gaps.topics.slice(0, TOP_GAPS);
   const link = `${dashboardUrl.replace(/\/+$/, '')}/overview`;
+  // Topic and count only: the customers' own words stay in the dashboard (behind the link). The
+  // email is kept in the outbox, where a privacy delete cannot tell whose words they were.
   const gapLines = top.map(
-    (t) =>
-      `${t.topic}: ${t.count} ${t.count === 1 ? 'pergunta' : 'perguntas'}, p. ex. "${short(t.examples[0]?.question ?? '')}"`,
+    (t) => `${t.topic}: ${t.count} ${t.count === 1 ? 'pergunta' : 'perguntas'}`,
   );
   const text = [
     `Resumo de ${client.name}, semana de ${period}.`,
@@ -151,7 +150,7 @@ export function weeklyEmail(
 ${rows.map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;vertical-align:top;color:#666;">${esc(k)}</td><td style="padding:6px 0;vertical-align:top;"><strong>${esc(v)}</strong></td></tr>`).join('\n')}
 </table>
 <p style="margin:0 0 8px;"><strong>${top.length ? 'O que o assistente não soube responder' : 'O assistente respondeu a tudo esta semana.'}</strong></p>
-${top.length ? `<ol style="margin:0 0 16px;padding-left:20px;">${top.map((t) => `<li style="margin:0 0 6px;">${esc(t.topic)}: ${t.count} ${t.count === 1 ? 'pergunta' : 'perguntas'}${t.examples[0] ? `<br><span style="color:#666;">«${esc(short(t.examples[0].question))}»</span>` : ''}</li>`).join('')}</ol>` : ''}
+${top.length ? `<ol style="margin:0 0 16px;padding-left:20px;">${top.map((t) => `<li style="margin:0 0 6px;">${esc(t.topic)}: ${t.count} ${t.count === 1 ? 'pergunta' : 'perguntas'}</li>`).join('')}</ol>` : ''}
 <p style="margin:0;"><a href="${esc(link)}" style="display:inline-block;background:#008069;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:4px;font-weight:bold;">Abrir o resumo</a></p>
 </div></body></html>`;
   return { subject, text, html };

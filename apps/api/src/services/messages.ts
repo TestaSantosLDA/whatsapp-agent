@@ -10,6 +10,7 @@ import {
 import type { InboundMessage } from '../channels/inbound.js';
 import type { Db } from '../db/index.js';
 import { contacts, conversations, messages } from '../db/schema.js';
+import { ensureCustomer } from '../customers/records.js';
 
 export type ContactRow = typeof contacts.$inferSelect;
 export type ConversationRow = typeof conversations.$inferSelect;
@@ -28,6 +29,7 @@ export class MessageService {
     return channel;
   }
 
+  /** The contact for this number, created with its customer record (WA-027) if new. */
   async upsertContact(clientId: string, waId: string, name?: string): Promise<ContactRow> {
     const [row] = await this.db
       .insert(contacts)
@@ -37,6 +39,8 @@ export class MessageService {
         set: name ? { name } : { waId },
       })
       .returning();
+    if (!row!.customerId)
+      row!.customerId = (await ensureCustomer(this.db, clientId, row!.id)) ?? null;
     return row!;
   }
 

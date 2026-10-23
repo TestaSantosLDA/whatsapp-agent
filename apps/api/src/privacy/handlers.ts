@@ -8,6 +8,8 @@ import {
   agentRuns,
   contacts,
   conversations,
+  leadEvents,
+  leadNotes,
   leads,
   messages,
   outbox,
@@ -216,6 +218,97 @@ export const leadsHandler: PersonalDataHandler = {
   },
 };
 
+/** Ids of the subject's leads (read before the leads handler takes the link off them). */
+function leadIdsOfSubject(ctx: PrivacyContext) {
+  return ctx.db.select({ id: leads.id }).from(leads).where(leadsOfSubject(ctx));
+}
+
+/**
+ * The team's notes on the person's leads (WA-024): free text, deleted. Runs before the leads
+ * handler, which takes the link to the person off the lead.
+ */
+export const leadNotesHandler: PersonalDataHandler = {
+  name: 'lead_notes',
+  tables: [leadNotes],
+  order: -10,
+  async export(ctx) {
+    const rows = await ctx.db
+      .select()
+      .from(leadNotes)
+      .where(
+        and(
+          eq(leadNotes.clientId, ctx.client.id),
+          inArray(leadNotes.leadId, leadIdsOfSubject(ctx)),
+        ),
+      )
+      .orderBy(asc(leadNotes.createdAt));
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        leadId: r.leadId,
+        body: r.body,
+        createdAt: iso(r.createdAt),
+      })),
+    };
+  },
+  async erase(ctx) {
+    const rows = await ctx.db
+      .delete(leadNotes)
+      .where(
+        and(
+          eq(leadNotes.clientId, ctx.client.id),
+          inArray(leadNotes.leadId, leadIdsOfSubject(ctx)),
+        ),
+      )
+      .returning({ id: leadNotes.id });
+    return { deleted: count(rows) };
+  },
+};
+
+/**
+ * The history of the person's leads (WA-024): its `data` may hold text about them (a lost
+ * reason's comment, a quote's details), so it is deleted, before the leads handler runs. The
+ * anonymised lead keeps its status and dates for the statistics.
+ */
+export const leadEventsHandler: PersonalDataHandler = {
+  name: 'lead_events',
+  tables: [leadEvents],
+  order: -10,
+  async export(ctx) {
+    const rows = await ctx.db
+      .select()
+      .from(leadEvents)
+      .where(
+        and(
+          eq(leadEvents.clientId, ctx.client.id),
+          inArray(leadEvents.leadId, leadIdsOfSubject(ctx)),
+        ),
+      )
+      .orderBy(asc(leadEvents.createdAt), asc(leadEvents.id));
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        leadId: r.leadId,
+        kind: r.kind,
+        data: r.data,
+        createdAt: iso(r.createdAt),
+      })),
+    };
+  },
+  async erase(ctx) {
+    const rows = await ctx.db
+      .delete(leadEvents)
+      .where(
+        and(
+          eq(leadEvents.clientId, ctx.client.id),
+          inArray(leadEvents.leadId, leadIdsOfSubject(ctx)),
+        ),
+      )
+      .returning({ id: leadEvents.id });
+    return { deleted: count(rows) };
+  },
+};
+
 /** Emails to the team about the person (lead, handoff and order emails). */
 export const outboxHandler: PersonalDataHandler = {
   name: 'emails',
@@ -339,6 +432,9 @@ export const personalDataHandlers: PersonalDataHandler[] = [
   conversationsHandler,
   messagesHandler,
   leadsHandler,
+  // WA-024: the team's notes on the leads, and the leads' history.
+  leadNotesHandler,
+  leadEventsHandler,
   outboxHandler,
   agentRunsHandler,
   privacyRequestsHandler,

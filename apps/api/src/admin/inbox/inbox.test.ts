@@ -14,7 +14,7 @@ import { COLLEAGUE_REPLY_PREFIX } from '../../agent/history.js';
 import { agentTools } from '../../agent/registry.js';
 import { messages, outbox } from '../../db/schema.js';
 import type { Responder } from '../../jobs/process-conversation.js';
-import { adminTestApp } from '../../test/admin.js';
+import { adminTestApp, signToken } from '../../test/admin.js';
 import { testClient } from '../../test/helpers.js';
 
 const base = testClient();
@@ -352,5 +352,54 @@ describe('inbox', () => {
       type: 'conversation',
       conversation: { contact: { phone: ANA }, branchId: 'lisboa' },
     });
+  });
+
+  it('closes a stream once the member is removed, re-scoped or the token expires', async () => {
+    const t = (current = await setup());
+    t.inbox.streamRecheckMs = 20;
+    const open = (token: string) =>
+      t.call(`/api/admin/clients/acme/inbox/stream?access_token=${token}`, undefined, {
+        headers: { accept: 'text/event-stream' },
+      });
+    /** Whether the stream ends within `ms` (pings do not count). */
+    const ends = async (res: Response, ms: number) => {
+      const reader = res.body!.getReader();
+      const timer = new Promise<'open'>((r) => setTimeout(() => r('open'), ms));
+      const done = (async () => {
+        while (!(await reader.read()).done);
+        return 'closed' as const;
+      })();
+      const result = await Promise.race([done, timer]);
+      if (result === 'open') await reader.cancel();
+      return result;
+    };
+
+    // Unchanged member, valid token: the stream stays open.
+    const stays = await open(t.admin.token);
+    expect(stays.status).toBe(200);
+    expect(await ends(stays, 200)).toBe('open');
+
+    // Removed from the team.
+    const removed = await open(t.porto.token);
+    expect(removed.status).toBe(200);
+    await t.team.remove('acme', t.porto.row.id);
+    expect(await ends(removed, 2000)).toBe('closed');
+
+    // Re-scoped: Lisboa's salesperson now works for Porto.
+    const rescoped = await open(t.lisboa.token);
+    expect(rescoped.status).toBe(200);
+    await t.team.update('acme', t.lisboa.row.id, { branches: ['porto'] });
+    expect(await ends(rescoped, 2000)).toBe('closed');
+
+    // A token that expires in a second.
+    const short = await signToken(
+      t.keys,
+      { id: t.admin.userId, email: 'admin@example.invalid' },
+      {},
+      { expiresIn: Math.floor(Date.now() / 1000) + 1 },
+    );
+    const expiring = await open(short);
+    expect(expiring.status).toBe(200);
+    expect(await ends(expiring, 4000)).toBe('closed');
   });
 });

@@ -66,6 +66,10 @@ export class PrivacyError extends Error {
   }
 }
 
+/** Ids from the URL are checked before they reach Postgres: anything else is a 404, not a 500. */
+const isUuid = (id: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
 /** How long before the retention job deletes someone the admins see them listed. */
 export const RETENTION_NOTICE_DAYS = 7;
 
@@ -143,6 +147,7 @@ export class PrivacyService {
   }
 
   async customer(clientId: string, contactId: string): Promise<PrivacyCustomer | undefined> {
+    if (!isUuid(contactId)) return undefined;
     const [row] = await this.customerQuery(
       and(eq(contacts.clientId, clientId), eq(contacts.id, contactId)),
     );
@@ -154,6 +159,7 @@ export class PrivacyService {
       .select({
         contact: contacts,
         lastActivityAt: lastActivity,
+        recordActivityAt: recordLastActivity,
         conversations:
           sql<number>`(select count(*)::int from ${conversations} where ${conversations.contactId} = ${contactRef})`.mapWith(
             Number,
@@ -173,7 +179,9 @@ export class PrivacyService {
   }
 
   private async subject(clientId: string, contactId: string): Promise<string[]> {
-    const ids = await this.subjects.contactIds(this.deps.db, clientId, contactId);
+    const ids = isUuid(contactId)
+      ? await this.subjects.contactIds(this.deps.db, clientId, contactId)
+      : [];
     if (ids.length === 0) throw new PrivacyError('not_found', 'Cliente não encontrado.');
     return ids;
   }
@@ -377,10 +385,12 @@ export class PrivacyService {
   }
 
   private async pendingRequest(clientId: string, id: string): Promise<PrivacyRequestRow> {
-    const [row] = await this.deps.db
-      .select()
-      .from(privacyRequests)
-      .where(and(eq(privacyRequests.clientId, clientId), eq(privacyRequests.id, id)));
+    const [row] = isUuid(id)
+      ? await this.deps.db
+          .select()
+          .from(privacyRequests)
+          .where(and(eq(privacyRequests.clientId, clientId), eq(privacyRequests.id, id)))
+      : [];
     if (!row) throw new PrivacyError('not_found', 'Pedido não encontrado.');
     if (row.status !== 'pending') {
       throw new PrivacyError('not_pending', 'Este pedido já foi tratado.');
@@ -508,29 +518,36 @@ export class PrivacyService {
     return cutoff;
   }
 
-  /** Whom the retention job deletes within `days` (or on its next run, if already due). */
+  /**
+   * Whom the retention job deletes within `days` (or on its next run, if already due): the numbers
+   * of every customer record whose numbers have all been idle that long (see `recordLastActivity`).
+   */
   async retentionDue(
     client: ClientConfig,
     days = RETENTION_NOTICE_DAYS,
   ): Promise<PrivacyRetentionView> {
     const soon = new Date(this.now().getTime() + days * 86_400_000);
     const rows = await this.customerQuery(
-      and(eq(contacts.clientId, client.id), activeBefore(this.retentionCutoff(client, soon))),
+      and(eq(contacts.clientId, client.id), recordActiveBefore(this.retentionCutoff(client, soon))),
     )
-      .orderBy(asc(lastActivity))
+      .orderBy(asc(recordLastActivity), asc(contacts.createdAt))
       .limit(500);
     return {
       months: client.privacy.retention_months,
       days,
       due: rows.map((r) => {
-        const deleteOn = new Date(r.lastActivityAt);
+        const deleteOn = new Date(r.recordActivityAt);
         deleteOn.setUTCMonth(deleteOn.getUTCMonth() + client.privacy.retention_months);
         return { ...toCustomer(r), deleteOn: deleteOn.toISOString() };
       }),
     };
   }
 
-  /** The scheduled job: deletes every contact past the retention period, one at a time. */
+  /**
+   * The scheduled job: deletes every customer past the retention period, one at a time. A customer
+   * record is due only when all of its numbers are idle past the period: one active number keeps
+   * the whole record (a delete covers every number of it). Returns the customers deleted.
+   */
   async runRetention(client: ClientConfig, max = 500): Promise<{ deleted: number }> {
     const expired = await this.deps.db
       .select({ id: contacts.id })
@@ -538,13 +555,19 @@ export class PrivacyService {
       .where(
         and(
           eq(contacts.clientId, client.id),
-          activeBefore(this.retentionCutoff(client, this.now())),
+          recordActiveBefore(this.retentionCutoff(client, this.now())),
         ),
       )
       .limit(max);
+    const done = new Set<string>();
     let deleted = 0;
     for (const { id } of expired) {
-      await this.deleteCustomer(client, id, { actor: null, action: 'retention_delete' });
+      if (done.has(id)) continue;
+      const { people } = await this.deleteCustomer(client, id, {
+        actor: null,
+        action: 'retention_delete',
+      });
+      for (const p of people) done.add(p.id);
       deleted++;
     }
     return { deleted };
@@ -603,7 +626,18 @@ const lastActivity =
     (v: Date | string) => new Date(v),
   );
 
-const activeBefore = (date: Date) => sql`${lastActivity} < ${date.toISOString()}::timestamptz`;
+/**
+ * The last activity of the contact's customer record (WA-027): the latest of every number of the
+ * record (the contact alone when it has none). Retention decides on this, so an active number
+ * keeps the record's idle numbers too.
+ */
+const recordLastActivity =
+  sql<Date>`(select max(greatest(c2.created_at, (select max(v.last_activity_at) from ${conversations} v where v.contact_id = c2.id))) from ${contacts} c2 where c2.id = ${contactRef} or c2.customer_id = ${sql.identifier('contacts')}.${sql.identifier('customer_id')})`.mapWith(
+    (v: Date | string) => new Date(v),
+  );
+
+const recordActiveBefore = (date: Date) =>
+  sql`${recordLastActivity} < ${date.toISOString()}::timestamptz`;
 
 function toCustomer(row: {
   contact: ContactRow;
