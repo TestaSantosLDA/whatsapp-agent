@@ -197,6 +197,31 @@ describe('ClaudeResponder', () => {
     });
   });
 
+  it('keeps the reply Claude wrote next to offer_choices when it then ends with no text', async () => {
+    const t = await setup([
+      () => ({
+        content: [
+          { type: 'text', text: 'Já tem o terreno?' },
+          {
+            type: 'tool_use',
+            id: 'toolu_offer',
+            name: 'offer_choices',
+            input: { options: ['Sim', 'Ainda não'] },
+          },
+        ],
+        stop_reason: 'tool_use',
+      }),
+      () => ({ content: [], stop_reason: 'end_turn' }),
+    ]);
+    await t.send('Habitação');
+    const [out] = await t.outbound();
+    expect(out?.payload).toMatchObject({
+      interactive: { type: 'button', body: { text: 'Já tem o terreno?' } },
+    });
+    const [run] = await t.db.select().from(agentRuns);
+    expect(run?.error).toBeNull();
+  });
+
   it('hands over when the customer asks for a person, even if Claude forgets the tool', async () => {
     const t = await setup([say('Claro, um colega vai responder-lhe em breve.')]);
     await t.send('Quero falar com uma pessoa');
