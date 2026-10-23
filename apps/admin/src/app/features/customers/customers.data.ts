@@ -30,6 +30,11 @@ export class CustomersData {
     return this.api.client('GET', `/customers/${enc(id)}`);
   }
 
+  /** The record of a WhatsApp contact, for the inbox (WA-023). */
+  byContact(contactId: string): Promise<CustomerDetail> {
+    return this.api.client('GET', `/customers/by-contact/${enc(contactId)}`);
+  }
+
   update(id: string, body: UpdateCustomerBody): Promise<CustomerDetail> {
     return this.api.client('PATCH', `/customers/${enc(id)}`, body);
   }

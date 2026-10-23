@@ -13,7 +13,13 @@ import {
   type OnDestroy,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { BackofficeLead } from '@wa/shared';
+import {
+  customerRoleLabels,
+  profileFieldLabels,
+  type BackofficeLead,
+  type CustomerDetail,
+} from '@wa/shared';
+import { CustomersData, profileText } from '../customers/customers.data';
 import { contactLabel, formatPhone, fullWhen, LEAD_TYPES, STATUS_LABELS, timeOf } from './format';
 import { InboxStore } from './inbox.store';
 import { toInboxMessageView } from './message-view';
@@ -109,6 +115,25 @@ const FIELD_LABELS: Record<string, string> = {
 
       <div class="thread__body" #scroller>
         @if (d) {
+          @if (customer(); as r) {
+            <details class="lead-card customer-card" [open]="profile().length > 0">
+              <summary>
+                <span class="lead-card__type">Cliente</span>
+                <span class="small">{{ recordLine(r) }}</span>
+                <a class="small" [routerLink]="['/customers', r.id]">Ver ficha</a>
+              </summary>
+              @if (profile().length) {
+                <dl class="lead-card__fields">
+                  @for (p of profile(); track p[0]) {
+                    <dt>{{ p[0] }}</dt>
+                    <dd>{{ p[1] }}</dd>
+                  }
+                </dl>
+              } @else if (r.profile.state === 'opted_out') {
+                <p class="small muted customer-card__note">O cliente opôs-se à personalização.</p>
+              }
+            </details>
+          }
           @for (lead of d.leads; track lead.id) {
             <details class="lead-card">
               <summary>
@@ -217,6 +242,15 @@ export class ConversationPage implements OnDestroy {
   readonly id = input.required<string>();
 
   protected readonly draft = signal('');
+  private readonly customers = inject(CustomersData);
+  /** The customer's record and profile (WA-027), when the member may see it. */
+  protected readonly customer = signal<CustomerDetail | null>(null);
+  private readonly contactId = computed(() => this.store.detail()?.conversation.contact.id ?? null);
+  protected readonly profile = computed<[string, string][]>(() =>
+    (this.customer()?.profile.fields ?? [])
+      .filter((f) => f.value !== null)
+      .map((f) => [profileFieldLabels[f.field], profileText(f.field, f.value)]),
+  );
   protected readonly statusLabel = STATUS_LABELS;
   protected readonly label = contactLabel;
   protected readonly phone = formatPhone;
@@ -235,6 +269,10 @@ export class ConversationPage implements OnDestroy {
         void this.store.open(id);
       });
     });
+    effect(() => {
+      const contactId = this.contactId();
+      untracked(() => void this.loadCustomer(contactId));
+    });
     // Keep the newest message in view.
     afterRenderEffect(() => {
       this.messages();
@@ -245,6 +283,22 @@ export class ConversationPage implements OnDestroy {
 
   ngOnDestroy(): void {
     this.store.close();
+  }
+
+  private async loadCustomer(contactId: string | null): Promise<void> {
+    this.customer.set(null);
+    if (!contactId) return;
+    try {
+      const record = await this.customers.byContact(contactId);
+      // The member may have moved on to another conversation meanwhile.
+      if (this.contactId() === contactId) this.customer.set(record);
+    } catch {
+      // Not visible to this member (no lead on their branches) or unavailable: no card.
+    }
+  }
+
+  protected recordLine(r: CustomerDetail): string {
+    return [r.name, r.company, r.role && customerRoleLabels[r.role]].filter(Boolean).join(' · ');
   }
 
   protected leadType(lead: BackofficeLead): string {

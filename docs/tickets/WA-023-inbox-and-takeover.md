@@ -39,6 +39,6 @@ Canned replies, internal chat between colleagues, the 24-hour WhatsApp window ru
 ## Open items
 
 - Web push (PWA) not done: alerts are email only.
-- The customer's record and profile beside the conversation is WA-027's; the view shows name, phone, branch and leads for now.
+- Done after the M5 merges: a "Cliente" card at the top of the conversation (WA-027's record: name, company, role, the preferences in use, "Ver ficha"), open when there are preferences; hidden when the member may not see the record. It is a card in the transcript column, not a third column, so phones get it too.
 - Inbound images show as "Enviou uma imagem" (no media download yet). Outbound documents (WA-025 quote PDFs) show as a file card (type badge, file name linking to the PDF, caption) in the transcript and as "Documento: <file>" in the list; inbound documents from customers still fall back to their text.
 - No nav badge for waiting conversations (would touch the shared shell).

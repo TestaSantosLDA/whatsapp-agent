@@ -11,7 +11,9 @@ import { RouterLink } from '@angular/router';
 import {
   customerRoleLabels,
   customerRoles,
+  formatCents,
   leadStatusLabels,
+  quoteStatusLabels,
   leadTypeLabel,
   profileFieldLabels,
   profileFields,
@@ -241,7 +243,7 @@ interface Row {
             </section>
 
             <section class="card">
-              <h2 class="card__title">Pedidos e encomendas</h2>
+              <h2 class="card__title">Pedidos, encomendas e orçamentos</h2>
               <ul class="plain list">
                 @for (l of c.leads; track l.id) {
                   <li>
@@ -253,7 +255,21 @@ interface Row {
                       <div class="small">{{ l.products || l.summary }}</div>
                     }
                   </li>
-                } @empty {
+                }
+                @for (q of c.quotes; track q.id) {
+                  <li>
+                    <a [routerLink]="['/quotes', q.id]">Orçamento {{ q.number }}</a>
+                    <span class="small muted">
+                      · {{ quoteStatus[q.status] }} · {{ date(q.sentAt ?? q.createdAt) }}</span
+                    >
+                    <div class="small">
+                      {{ cents(q.totalCents) }} com IVA{{
+                        q.branchName ? ' · ' + q.branchName : ''
+                      }}
+                    </div>
+                  </li>
+                }
+                @if (!c.leads.length && !c.quotes.length) {
                   <li class="small muted">Sem pedidos.</li>
                 }
               </ul>
@@ -585,6 +601,8 @@ export class CustomerPage {
   protected date = shortDate;
   protected text = profileText;
   protected typeLabel = leadTypeLabel;
+  protected quoteStatus = quoteStatusLabels;
+  protected cents = formatCents;
   protected status = (s: string) => leadStatusLabels[s as LeadStatus] ?? s;
   protected convStatus = (s: string) => conversationStatus[s] ?? s;
   protected editor = (f: ProfileField) => fieldEditors[f];

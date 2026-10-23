@@ -1,18 +1,24 @@
 /**
  * What the agent knows about the customer for this turn (WA-027): the record the team keeps, the
- * profile (only when profiling is on for the client and the customer), and their last orders and
- * quote requests, for "o mesmo da última vez". It goes into the per-turn system message, never
+ * profile (only when profiling is on for the client and the customer), and their last orders,
+ * quote requests and quotes sent to them (WA-025), for "o mesmo da última vez". It goes into the per-turn system message, never
  * into the cached system prompt, and only ever reads this client's rows.
  */
-import { customerRoleLabels, type ClientConfig, type ProfileUsualProduct } from '@wa/shared';
+import {
+  customerRoleLabels,
+  formatDecimal,
+  type ClientConfig,
+  type ProfileUsualProduct,
+  type QuoteLine,
+} from '@wa/shared';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../db/index.js';
-import { customers, leads } from '../db/schema.js';
+import { customers, leads, quotes } from '../db/schema.js';
 import type { ContactRow } from '../services/messages.js';
 import { profileRows, profilingState } from './profile.js';
 import { contactIdsOfCustomer, ensureCustomer } from './records.js';
 
-/** Order drafts and quote requests shown to the agent, newest first. */
+/** Order drafts, quote requests and sent quotes shown to the agent, newest first. */
 const LAST_ORDERS = 3;
 
 const quote = (s: string) => `"${s.replace(/\s+/g, ' ').slice(0, 160)}"`;
@@ -60,6 +66,16 @@ function describeLead(row: typeof leads.$inferSelect): string {
         ? `, delivery to ${str(f['delivery_address'])}`
         : '';
   return `- ${date}, ${kind} (status ${row.status}${where}): ${what}`;
+}
+
+/** A quote the team sent: its lines and total as the customer received them. */
+function describeQuote(row: typeof quotes.$inferSelect): string {
+  const date = (row.sentAt ?? row.createdAt).toISOString().slice(0, 10);
+  const lines = (row.lines as unknown as QuoteLine[])
+    .map((l) => `${l.description} × ${formatDecimal(l.quantity, 0, 3)} ${l.unit}`)
+    .join('; ');
+  const total = formatDecimal(row.totalCents / 100, 2, 2);
+  return `- ${date}, quote ${row.number} sent by the team (total ${total} € with VAT, valid until ${row.validUntil}): ${lines || 'no lines'}`;
 }
 
 /** Lines for the turn's system message; empty when there is nothing to say. */
@@ -110,22 +126,43 @@ export async function customerTurnContext(
 
   const contactIds = await contactIdsOfCustomer(db, client.id, customerId);
   if (contactIds.length) {
-    const last = await db
-      .select()
-      .from(leads)
-      .where(
-        and(
-          eq(leads.clientId, client.id),
-          inArray(leads.contactId, contactIds),
-          inArray(leads.type, ['order', 'quote']),
-        ),
-      )
-      .orderBy(desc(leads.createdAt))
-      .limit(LAST_ORDERS);
+    const [leadRows, quoteRows] = await Promise.all([
+      db
+        .select()
+        .from(leads)
+        .where(
+          and(
+            eq(leads.clientId, client.id),
+            inArray(leads.contactId, contactIds),
+            inArray(leads.type, ['order', 'quote']),
+          ),
+        )
+        .orderBy(desc(leads.createdAt))
+        .limit(LAST_ORDERS),
+      // Only quotes the customer received: a draft is the team's work in progress.
+      db
+        .select()
+        .from(quotes)
+        .where(
+          and(
+            eq(quotes.clientId, client.id),
+            inArray(quotes.contactId, contactIds),
+            eq(quotes.status, 'sent'),
+          ),
+        )
+        .orderBy(desc(quotes.sentAt))
+        .limit(LAST_ORDERS),
+    ]);
+    const last = [
+      ...leadRows.map((r) => ({ at: r.createdAt, text: describeLead(r) })),
+      ...quoteRows.map((r) => ({ at: r.sentAt ?? r.createdAt, text: describeQuote(r) })),
+    ]
+      .sort((a, b) => b.at.getTime() - a.at.getTime())
+      .slice(0, LAST_ORDERS);
     if (last.length) {
       lines.push(
-        'Their last order drafts and quote requests, newest first (for "o mesmo da última vez" / "the same as last time"; confirm items and quantities with them before acting):',
-        ...last.map(describeLead),
+        'Their last order drafts, quote requests and quotes sent, newest first (for "o mesmo da última vez" / "the same as last time"; confirm items and quantities with them before acting, and never promise a quote\'s prices again: the team decides prices):',
+        ...last.map((l) => l.text),
       );
     }
   }

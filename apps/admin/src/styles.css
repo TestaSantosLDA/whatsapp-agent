@@ -1212,6 +1212,16 @@ textarea.input {
   gap: 4px 10px;
   align-items: baseline;
 }
+.customer-card {
+  background: #eef6f4;
+  border-color: #c7e2dc;
+}
+.customer-card summary a {
+  margin-left: auto;
+}
+.customer-card__note {
+  margin: 8px 0 0;
+}
 .lead-card__type {
   font-weight: 600;
 }

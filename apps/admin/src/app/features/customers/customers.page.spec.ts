@@ -50,6 +50,19 @@ const detail = (o: Partial<CustomerDetail> = {}): CustomerDetail => ({
       summary: null,
     },
   ],
+  quotes: [
+    {
+      id: 'q1',
+      number: 'JUL-2026-0001',
+      status: 'sent',
+      leadId: 'l1',
+      branchName: 'Lisboa',
+      totalCents: 131600,
+      validUntil: '2026-10-31',
+      createdAt: '2026-10-02T08:00:00.000Z',
+      sentAt: '2026-10-02T09:00:00.000Z',
+    },
+  ],
   notes: [],
   profile: {
     state: 'on',
@@ -213,6 +226,10 @@ describe('Clientes', () => {
     expect(pref('detail_level').textContent).toContain('Assistente');
     expect(pref('usual_products').textContent).toContain('Deck de pinho 21x145 (40 caixas)');
     expect(el.textContent).toContain('Deck de pinho × 40');
+    const quote = el.querySelector<HTMLAnchorElement>('a[href="/quotes/q1"]')!;
+    expect(quote.textContent).toContain('Orçamento JUL-2026-0001');
+    expect(quote.closest('li')!.textContent).toContain('Enviado');
+    expect(quote.closest('li')!.textContent).toContain('1 316,00 € com IVA');
     expect(el.querySelector('a[href="https://wa.me/351912000111"]')).not.toBeNull();
 
     button(el, 'Editar', pref('detail_level')).click();

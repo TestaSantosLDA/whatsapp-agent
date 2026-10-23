@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import type {
   AdminContextView,
+  CustomerDetail,
   InboxConversation,
   InboxConversationDetail,
   InboxMessage,
@@ -225,6 +226,9 @@ describe('ConversationPage', () => {
           );
         }
         if (url.endsWith('/read')) return new Response(null, { status: 204 });
+        if (url.includes('/customers/by-contact/')) {
+          return json({ error: 'forbidden_branch', message: 'Não.' }, 403);
+        }
         return json(detail(row({ status: 'bot' })));
       }),
     );
@@ -249,6 +253,78 @@ describe('ConversationPage', () => {
     expect(sent).toEqual([{ text: 'Olá Ana' }]);
     expect(box.value).toBe('');
     expect(el.querySelectorAll('.msg')).toHaveLength(2);
+    // The customer's record was not visible to this member: no card.
+    expect(el.querySelector('.customer-card')).toBeNull();
+  });
+
+  it("shows the customer's record and profile, and a quote PDF in the transcript", async () => {
+    const urls: string[] = [];
+    const record = {
+      id: 'r1',
+      name: 'Ana Costa',
+      company: 'Costa Obras',
+      role: 'builder',
+      profile: {
+        state: 'on',
+        fields: [
+          { field: 'detail_level', value: 'short', source: 'agent', locked: false },
+          { field: 'delivery', value: null, source: 'team', locked: true },
+        ],
+      },
+    } as unknown as CustomerDetail;
+    const pdf = msg({
+      id: 'm2',
+      direction: 'outbound',
+      type: 'document',
+      text: 'Orçamento JUL-2026-0001',
+      sentBy: { id: ME, name: 'Sara', email: 'x' },
+      payload: {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: '351911111111',
+        type: 'document',
+        document: {
+          link: 'https://x.test/static/quotes/tok/Orcamento-JUL-2026-0001.pdf',
+          filename: 'Orcamento-JUL-2026-0001.pdf',
+          caption: 'Orçamento JUL-2026-0001',
+        },
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url);
+        if (url.endsWith('/read')) return new Response(null, { status: 204 });
+        if (url.includes('/customers/by-contact/')) return json(record);
+        return json({ ...detail(), messages: [msg({}), pdf] });
+      }),
+    );
+    TestBed.configureTestingModule({ providers: [provideRouter([]), InboxStore] });
+    TestBed.inject(AdminApi).clientId = 'jular';
+    const fixture = TestBed.createComponent(ConversationPage);
+    fixture.componentRef.setInput('id', 'c1');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    // The record loads once the conversation (and its contact) is known.
+    await new Promise((r) => setTimeout(r));
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(urls).toContain('/api/admin/clients/jular/customers/by-contact/k1');
+    const card = el.querySelector<HTMLDetailsElement>('.customer-card')!;
+    expect(card.open).toBe(true);
+    expect(card.textContent).toContain('Ana Costa · Costa Obras · Empreiteiro');
+    expect(card.textContent).toContain('Nível de detalhe');
+    expect(card.textContent).toContain('Respostas curtas');
+    expect(card.textContent).not.toContain('Entrega');
+    expect(card.querySelector('a')!.getAttribute('href')).toBe('/customers/r1');
+
+    const doc = el.querySelector<HTMLAnchorElement>('.msg__doc')!;
+    expect(doc.getAttribute('href')).toBe(
+      'https://x.test/static/quotes/tok/Orcamento-JUL-2026-0001.pdf',
+    );
+    expect(doc.textContent).toContain('Orcamento-JUL-2026-0001.pdf');
+    expect(doc.textContent).toContain('PDF');
+    expect(doc.closest('.msg')!.textContent).toContain('Orçamento JUL-2026-0001');
   });
 });
 

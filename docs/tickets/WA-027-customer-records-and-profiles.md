@@ -50,7 +50,6 @@ Decisions from the product owner: profiling stays in with guardrails: only factu
 ### Open items
 
 - Run the two profile eval cases on the real model.
-- Quotes (WA-025) should appear on the record page and in the "last orders" context once they exist.
-- WA-023 can show the record beside a conversation with `GET …/customers/by-contact/:contactId`.
+- Done after the M5 merges: quotes (WA-025) are on the record page (`CustomerDetail.quotes`, branch-scoped for sales like leads; listed under "Pedidos, encomendas e orçamentos" with number, status, date, total, linking to `/quotes/:id`) and in the turn context: the last three of order drafts, quote requests and **sent** quotes (lines, total with VAT, validity; drafts never), newest first, with "never promise a quote's prices again". The inbox conversation shows a "Cliente" card (record line, preferences, link to the record) from `GET …/customers/by-contact/:contactId`; no card when the member may not see the record (403).
 - Re-enabling profiling after an objection is not offered (only the customer's new consent should do it; needs a decision).
 - The free-text guardrail is a word list (pt/en), a safety net under the closed field list, not a classifier.

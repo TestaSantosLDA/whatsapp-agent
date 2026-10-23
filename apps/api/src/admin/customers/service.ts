@@ -40,6 +40,7 @@ import {
   customerProfileFields,
   customers,
   leads,
+  quotes,
   teamMembers,
 } from '../../db/schema.js';
 import type { PrivacyService } from '../../privacy/service.js';
@@ -204,7 +205,7 @@ export class CustomersService {
       .where(and(eq(contacts.clientId, ctx.client.id), eq(contacts.customerId, record.id)))
       .orderBy(asc(contacts.createdAt));
     const contactIds = people.map((p) => p.id);
-    const [convs, leadRows, notes, profile, state] = await Promise.all([
+    const [convs, leadRows, quoteRows, notes, profile, state] = await Promise.all([
       db
         .select({
           conversation: conversations,
@@ -235,6 +236,27 @@ export class CustomersService {
           ),
         )
         .orderBy(desc(leads.createdAt)),
+      db
+        .select({
+          id: quotes.id,
+          number: quotes.number,
+          status: quotes.status,
+          leadId: quotes.leadId,
+          branchId: quotes.branchId,
+          totalCents: quotes.totalCents,
+          validUntil: quotes.validUntil,
+          createdAt: quotes.createdAt,
+          sentAt: quotes.sentAt,
+        })
+        .from(quotes)
+        .where(
+          and(
+            eq(quotes.clientId, ctx.client.id),
+            inArray(quotes.contactId, contactIds),
+            branchFilter(ctx, quotes.branchId),
+          ),
+        )
+        .orderBy(desc(quotes.createdAt)),
       db
         .select({ note: customerNotes, author: teamMembers })
         .from(customerNotes)
@@ -285,6 +307,17 @@ export class CustomersService {
           summary: str(fields['summary']),
         };
       }),
+      quotes: quoteRows.map((q) => ({
+        id: q.id,
+        number: q.number,
+        status: q.status,
+        leadId: q.leadId,
+        branchName: ctx.client.branches.find((b) => b.id === q.branchId)?.name ?? null,
+        totalCents: q.totalCents,
+        validUntil: q.validUntil,
+        createdAt: q.createdAt.toISOString(),
+        sentAt: q.sentAt?.toISOString() ?? null,
+      })),
       notes: notes.map(({ note, author }) => ({
         id: note.id,
         body: note.body,

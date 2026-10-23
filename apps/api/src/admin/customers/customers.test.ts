@@ -15,6 +15,7 @@ import {
   customers,
   leads,
   privacyAudit,
+  quotes,
 } from '../../db/schema.js';
 import type { Responder } from '../../jobs/process-conversation.js';
 import { adminTestApp } from '../../test/admin.js';
@@ -246,6 +247,39 @@ describe('note_profile and the turn context', () => {
       },
       createdAt: new Date('2026-10-01T09:00:00Z'),
     });
+    // And a quote they sent him (WA-025); a draft is not the customer's yet.
+    const line = { variantId: '4610001', sku: null, discountPercent: 0, vatPercent: 23 };
+    await s.t.db.insert(quotes).values([
+      {
+        clientId: 'acme',
+        contactId: contact.id,
+        branchId: 'lisboa',
+        number: 'ACME-2026-0001',
+        status: 'sent',
+        lines: [
+          {
+            ...line,
+            description: 'Deck de pinho 21x145',
+            quantity: 40,
+            unit: 'cx',
+            unitPrice: 26.748,
+          },
+        ],
+        totalCents: 131600,
+        validUntil: '2026-10-31',
+        sentAt: new Date('2026-10-02T09:00:00Z'),
+        createdAt: new Date('2026-10-02T08:00:00Z'),
+      },
+      {
+        clientId: 'acme',
+        contactId: contact.id,
+        branchId: 'lisboa',
+        number: 'ACME-2026-0002',
+        lines: [{ ...line, description: 'Óleo para deck', quantity: 2, unit: 'un', unitPrice: 20 }],
+        validUntil: '2026-11-30',
+        createdAt: new Date('2026-10-03T08:00:00Z'),
+      },
+    ]);
     s.claude.script.push(say('40 caixas de deck de pinho 21x145, entrega em obra. Confirma?'));
     await s.send(CARLOS, 'Olá, o mesmo da última vez.');
     const context = turnContextOf(s.claude.bodies.at(-1)!);
@@ -259,6 +293,11 @@ describe('note_profile and the turn context', () => {
     expect(context).toContain(
       '- 2026-10-01, order draft (status new, delivery to Obra em Sintra): Deck de pinho 21x145 (variant 4610001) × 40',
     );
+    expect(context).toContain(
+      '- 2026-10-02, quote ACME-2026-0001 sent by the team (total 1 316,00 € with VAT, valid until 2026-10-31): Deck de pinho 21x145 × 40 cx',
+    );
+    expect(context).not.toContain('ACME-2026-0002');
+    expect(context.indexOf('ACME-2026-0001')).toBeLessThan(context.indexOf('2026-10-01, order'));
     // The cached system prompt stays the same for every customer.
     expect(systemPromptOf(s.claude.bodies.at(-1)!)).toBe(systemPromptOf(s.claude.bodies[0]!));
 
@@ -278,6 +317,10 @@ describe('note_profile and the turn context', () => {
     ]);
     expect(detail.leads).toEqual([
       expect.objectContaining({ type: 'order', products: 'Deck de pinho 21x145 × 40' }),
+    ]);
+    expect(detail.quotes.map((q) => [q.number, q.status, q.totalCents, q.branchName])).toEqual([
+      ['ACME-2026-0002', 'draft', 0, 'Lisboa'],
+      ['ACME-2026-0001', 'sent', 131600, 'Lisboa'],
     ]);
   });
 
@@ -553,8 +596,18 @@ describe('customer records in the dashboard', () => {
     ]);
     const list = await s.api<CustomerList>('', {}, 200, porto.token);
     expect(list.items.map((c) => [c.id, c.leads])).toEqual([[customerId, 1]]);
+    await s.t.db.insert(quotes).values(
+      ['porto', 'lisboa'].map((branchId, i) => ({
+        clientId: 'acme',
+        contactId: contact.id,
+        branchId,
+        number: `ACME-2026-000${i + 1}`,
+        validUntil: '2026-11-30',
+      })),
+    );
     const detail = await s.api<CustomerDetail>(`/${customerId}`, {}, 200, porto.token);
     expect(detail.leads.map((l) => l.branchId)).toEqual(['porto']);
+    expect(detail.quotes.map((q) => q.number)).toEqual(['ACME-2026-0001']);
   });
 
   it('keeps each client’s customers apart, even with the same number', async () => {

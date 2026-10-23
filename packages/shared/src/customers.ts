@@ -6,6 +6,7 @@
  * whether the agent (note_profile) or the team writes it, so nothing else can be stored.
  */
 import { z } from 'zod';
+import type { QuoteStatus } from './quotes.js';
 
 export const customerRoles = [
   'private',
@@ -363,6 +364,19 @@ export interface CustomerLeadView {
   summary: string | null;
 }
 
+/** A quote (WA-025) for one of the record's numbers. */
+export interface CustomerQuoteView {
+  id: string;
+  number: string;
+  status: QuoteStatus;
+  leadId: string | null;
+  branchName: string | null;
+  totalCents: number;
+  validUntil: string;
+  createdAt: string;
+  sentAt: string | null;
+}
+
 export interface CustomerNoteView {
   id: string;
   body: string;
@@ -383,6 +397,8 @@ export interface CustomerDetail {
   conversations: CustomerConversationView[];
   /** Leads and order drafts (type `order`), newest first; for sales, of their branches only. */
   leads: CustomerLeadView[];
+  /** Quotes (WA-025), newest first; for sales, of their branches only. */
+  quotes: CustomerQuoteView[];
   notes: CustomerNoteView[];
   profile: { state: ProfilingState; fields: CustomerProfileFieldView[] };
 }
