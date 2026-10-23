@@ -160,6 +160,22 @@ export const clientConfigSchema = z.object({
     .prefault({}),
   /** Linked in the first reply to a new contact. */
   privacy_policy_url: z.url().optional(),
+  /**
+   * WA-032: the menu offered as buttons in the first reply to a new contact whose first message
+   * has no clear question (a greeting). Titles are written in the default language; the agent
+   * translates them for a customer writing in another language.
+   */
+  welcome_menu: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(20),
+        /** What the customer wants when they tap it, and what the agent does next. */
+        about: z.string().min(1),
+      }),
+    )
+    .min(2)
+    .max(3)
+    .optional(),
   /** WA-028: contacts with no activity for this many months are deleted by a scheduled job. */
   privacy: z
     .object({ retention_months: z.number().int().min(1).max(120).default(24) })

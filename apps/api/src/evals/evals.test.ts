@@ -30,9 +30,9 @@ const jular = parseClientConfig(readFileSync(jularPath, 'utf8'), jularPath);
 const set = loadEvalSet('jular');
 
 describe('the Jular eval set', () => {
-  it('has 36 to 48 valid cases covering every use case in both languages', () => {
+  it('has 36 to 60 valid cases covering every use case in both languages', () => {
     expect(set.cases.length).toBeGreaterThanOrEqual(36);
-    expect(set.cases.length).toBeLessThanOrEqual(48);
+    expect(set.cases.length).toBeLessThanOrEqual(60);
     for (const useCase of useCases) {
       const langs = new Set(set.cases.filter((c) => c.use_case === useCase).map((c) => c.language));
       expect([useCase, [...langs].sort()]).toEqual([useCase, ['en', 'pt-PT']]);

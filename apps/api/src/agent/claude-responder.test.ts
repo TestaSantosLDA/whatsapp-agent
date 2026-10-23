@@ -158,6 +158,62 @@ describe('ClaudeResponder', () => {
     expect(Number(runs[1]!.costUsd)).toBeGreaterThan(0);
   });
 
+  it('offers the welcome menu on the first message only (WA-032)', async () => {
+    const welcome_menu = [
+      { title: 'Procuro um produto', about: 'They look for a product.' },
+      { title: 'Lojas e contactos', about: 'They want showrooms and hours.' },
+    ];
+    const t = await setup(
+      [
+        callTool('offer_choices', { options: welcome_menu.map((m) => m.title) }),
+        say('Olá! Sou o assistente automático da Acme Madeiras. Em que posso ajudar?'),
+        say('Temos sim.'),
+      ],
+      { client: testClient({ welcome_menu }) },
+    );
+    await t.send('Olá');
+    const first = t.requests[0]!.body.messages as { content: unknown }[];
+    const context = String(first.at(-1)!.content);
+    expect(context).toContain('call offer_choices with exactly these options');
+    expect(context).toContain('- "Procuro um produto": They look for a product.');
+    expect(context).toContain('- "Lojas e contactos": They want showrooms and hours.');
+    const [out] = await t.outbound();
+    expect(out?.payload).toMatchObject({
+      interactive: {
+        type: 'button',
+        action: {
+          buttons: [
+            { reply: { title: 'Procuro um produto' } },
+            { reply: { title: 'Lojas e contactos' } },
+          ],
+        },
+      },
+    });
+
+    await t.send('Têm decks?');
+    const second = t.requests[2]!.body.messages as { content: unknown }[];
+    expect(String(second.at(-1)!.content)).not.toContain('Procuro um produto');
+  });
+
+  it('refuses a welcome menu title longer than a WhatsApp button allows', () => {
+    const about = 'x';
+    expect(() =>
+      testClient({
+        welcome_menu: [
+          { title: 'x'.repeat(21), about },
+          { title: 'Ok', about },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('has no welcome menu when the client sets none', async () => {
+    const t = await setup([say('Olá!')]);
+    await t.send('Olá');
+    const msgs = t.requests[0]!.body.messages as { content: unknown }[];
+    expect(String(msgs.at(-1)!.content)).not.toContain('offer_choices');
+  });
+
   it('returns a tool error to Claude and still answers the customer', async () => {
     const t = await setup(
       [
