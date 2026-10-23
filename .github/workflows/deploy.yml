@@ -83,12 +83,15 @@ jobs:
           IMAGE: ${{ steps.image.outputs.image }}
           RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
           PUBLIC_BASE_URL_OVERRIDE: ${{ vars.PUBLIC_BASE_URL }}
+          # Team dashboard sign-in (WA-022). Public values, so repository variables, not secrets.
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
         run: |
           set -euo pipefail
           # Required secrets fail the deploy when missing; optional ones are mounted only if they
           # exist in Secret Manager.
           required="ANTHROPIC_API_KEY DATABASE_URL JOBS_SECRET SIMULATOR_ACCESS_CODE SIMULATOR_WEBHOOK_SECRET"
-          optional="RESEND_API_KEY MAIL_REDIRECT_TO"
+          optional="RESEND_API_KEY MAIL_REDIRECT_TO SUPABASE_SERVICE_ROLE_KEY SUPABASE_JWT_SECRET"
           existing=" $(gcloud secrets list --format='value(name.basename())' | tr '\n' ' ') "
           mounts=""
           for name in $required $optional; do
@@ -107,6 +110,11 @@ jobs:
           env_vars="$env_vars,CLOUD_TASKS_LOCATION=$REGION,CLOUD_TASKS_QUEUE=$TASKS_QUEUE"
           env_vars="$env_vars,MIGRATE_ON_START=false,SYNC_ON_START=false"
           env_vars="$env_vars,PUBLIC_BASE_URL=${url:-https://pending.invalid}"
+          # Without SUPABASE_URL the dashboard is served but nobody can sign in (docs/deploy.md).
+          if [[ -n "$SUPABASE_URL" ]]; then env_vars="$env_vars,SUPABASE_URL=$SUPABASE_URL"; fi
+          if [[ -n "$SUPABASE_ANON_KEY" ]]; then
+            env_vars="$env_vars,SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
+          fi
 
           # max-instances 1: simulator replies travel over an in-memory event bus (apps/api/src/
           # bus.ts), so a second instance would miss them. timeout 3600: SSE streams stay open.

@@ -9,11 +9,12 @@ Until the repository variable `GCP_PROJECT` is set, the deploy workflow skips it
 ```
 Phone / laptop ──https──> Cloud Run "wa-demo" (one container, europe-west1, 0 to 1 instance)
                              ├─ /            the Angular simulator (static files, built into the image)
+                             ├─ /admin       the team dashboard (Angular, WA-022); /api/admin/* its API (Supabase JWT)
                              ├─ /sim/*       simulator API + SSE streams (access code)
                              ├─ /webhook/*   Meta-format webhook
                              └─ /jobs/*      x-jobs-secret header
                                    ▲  ▲
-          Cloud Tasks "wa-conversations" │  └── Cloud Scheduler: hourly catalogue sync, weekly keep-alive
+          Cloud Tasks "wa-conversations" │  └── Cloud Scheduler: hourly catalogue sync, weekly keep-alive, lead reminders every 15 min
           (one conversation turn per task) │
                                           └── Supabase Postgres (transaction pooler, Paris)
 ```
@@ -33,8 +34,8 @@ Everything below stays inside the free tiers at demo volume. Only the Claude API
 | Cloud Run         | 180,000 vCPU-s, 360,000 GiB-s, 2 M requests (request-based billing) | 1 vCPU, 512 MiB, min 0 instances                                  |
 | Artifact Registry | 0.5 GB storage                                                      | ~100 MB per image; a cleanup policy keeps the last 3              |
 | Cloud Tasks       | 1 M operations                                                      | a few per message                                                 |
-| Cloud Scheduler   | 3 jobs                                                              | 2 jobs                                                            |
-| Secret Manager    | 6 active secret versions, 10,000 accesses                           | 5 or 6 secrets (one version each: destroy old ones when rotating) |
+| Cloud Scheduler   | 3 jobs                                                              | 3 jobs (a fourth costs $0.10 a month)                             |
+| Secret Manager    | 6 active secret versions, 10,000 accesses                           | 5 to 8 secrets (one version each: destroy old ones when rotating) |
 | Supabase          | 500 MB database; pauses after 7 days without activity               | the hourly sync keeps it awake                                    |
 
 The region is `europe-west1` (Belgium): a Tier 1 region (the cheapest price list, which the free tier is computed against) that offers every service used here. Supabase's closest region is West EU (Paris).
@@ -111,7 +112,30 @@ gcloud artifacts repositories set-cleanup-policies "$REPO" --location="$REGION" 
 
 Why the transaction pooler: the direct connection (`db.<ref>.supabase.co`) is IPv6 only, and neither Cloud Run nor GitHub's runners have IPv6 egress by default. The transaction pooler is IPv4 and meant for serverless clients. It does not support prepared statements, so the API opens Postgres with `prepare: false` ([db/index.ts](../apps/api/src/db/index.ts)). The migrations from CI use the same string.
 
-The schema is created by the first deploy (`pnpm --filter @wa/api db:migrate`). Nothing to do in the Supabase dashboard.
+The schema is created by the first deploy (`pnpm --filter @wa/api db:migrate`). Nothing to do in the Supabase dashboard for the database.
+
+### 5b. Supabase Auth (team dashboard sign-in, WA-022)
+
+The team dashboard at `<service URL>/admin` signs people in with Supabase Auth: an email link or code, or Google. It is invite only: admins invite colleagues from **Definições → Equipa**, and nobody can sign up on their own. Roles and branches live in our own `team_members` table; Supabase only proves who the person is. Free up to 50,000 monthly users.
+
+The service URL is only known after the first deploy (step 12): do the URL parts then, and the rest now.
+
+1. **Authentication → Sign In / Providers → User Signups:** turn **Allow new users to sign up** off. Invites still work; strangers get "Signups not allowed".
+2. **Email provider:** on (the default). Keep **Confirm email** on. In **Authentication → Emails → Magic Link**, add `{{ .Token }}` to the template (e.g. "Ou escreva este código: {{ .Token }}"), so people whose phone opens the link in another browser can type the code instead. Translate the Invite and Magic Link templates to pt-PT while there.
+3. **Google provider:**
+   1. In the [Google Cloud console](https://console.cloud.google.com/apis/credentials) of the same project: **OAuth consent screen** → External, app name "Painel da equipa", support email, and publish it (In production; only the basic scopes `email`, `profile`, `openid` are used, so no verification is needed).
+   2. **Credentials → Create credentials → OAuth client ID** → Web application. **Authorised redirect URI:** `https://<project-ref>.supabase.co/auth/v1/callback` (Supabase shows it on the Google provider page). No JavaScript origins are needed.
+   3. In Supabase, **Authentication → Sign In / Providers → Google**: enable, paste the client ID and secret, save.
+      With sign-ups off, Google sign-in only works for someone already invited (same email).
+4. **URL configuration** (after the first deploy): **Site URL** `https://<service URL>/admin/`; **Redirect URLs** add `https://<service URL>/admin` and `https://<service URL>/admin/**`. For local development also add `http://localhost:3000/admin/**` and `http://localhost:4300/admin/**`.
+5. **Keys** (**Project Settings → API Keys**): the publishable (anon) key goes into the repository variable `SUPABASE_ANON_KEY` (step 11), the project URL into `SUPABASE_URL`; both are public, the browser gets them from `GET /admin/config`. The secret (service role) key goes into Secret Manager as `SUPABASE_SERVICE_ROLE_KEY` (step 6): the API uses it to send invites and to store knowledge base files in a private Storage bucket (`knowledge`, created on the first upload; WA-026). Projects on the new **JWT signing keys** (the default) need nothing else: the API checks tokens against `https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json`. A project still on the legacy JWT secret also needs `SUPABASE_JWT_SECRET` (step 6).
+6. **The first admin:** the dashboard has no admin yet, so add one row by hand once the schema exists, then sign in with that email (magic link or Google) and invite everyone else from the dashboard:
+   ```sql
+   insert into team_members (client_id, email, name, role) values ('jular', 'you@example.com', 'Your name', 'admin');
+   ```
+   (Supabase → SQL editor.) Because sign-ups are disabled, also create that user once in **Authentication → Users → Invite user**.
+
+`ADMIN_DEV_LOGIN` (sign in as anyone, for local development) is refused at startup with `NODE_ENV=production` or on Cloud Run; never set it there.
 
 ### 6. Secrets
 
@@ -130,6 +154,10 @@ secret SIMULATOR_WEBHOOK_SECRET "$(openssl rand -hex 24)"
 # Optional, for demos: every email goes to this address instead of the branch teams. With
 # Resend's test sender (onboarding@resend.dev) it must be the Resend account's own address.
 # secret MAIL_REDIRECT_TO 'you@example.com'
+# Team dashboard (step 5b): invites. Without it, admins can add members but no invite email goes out.
+# secret SUPABASE_SERVICE_ROLE_KEY 'sb_secret_...'
+# Only for a Supabase project still on the legacy JWT secret (at least 32 characters).
+# secret SUPABASE_JWT_SECRET '...'
 ```
 
 To change one later: `printf '%s' 'new' | gcloud secrets versions add NAME --data-file=-`, redeploy (re-run the workflow), then `gcloud secrets versions destroy <old-version> --secret=NAME` to stay within the 6 free versions.
@@ -207,6 +235,15 @@ gh variable set GCP_RUNTIME_SA   --repo "$GITHUB_REPO" --body "$RUN_SA"
 gh variable set GCP_PROJECT      --repo "$GITHUB_REPO" --body "$PROJECT"
 ```
 
+For the team dashboard (step 5b), set the two public Supabase values as variables (not secrets, which keeps Secret Manager inside its free versions):
+
+```sh
+gh variable set SUPABASE_URL      --repo "$GITHUB_REPO" --body "https://<project-ref>.supabase.co"
+gh variable set SUPABASE_ANON_KEY --repo "$GITHUB_REPO" --body "sb_publishable_..."
+```
+
+Without them the dashboard is served but shows "sign-in is not configured".
+
 Optional variables, with their defaults: `CLOUD_RUN_SERVICE` (`wa-demo`), `ARTIFACT_REPOSITORY` (`wa`), `CLOUD_TASKS_QUEUE` (`wa-conversations`), `PUBLIC_BASE_URL` (the service's `run.app` URL; set it only for a custom domain).
 
 ### 12. First deploy
@@ -232,14 +269,30 @@ gcloud scheduler jobs create http wa-catalogue-sync --location="$REGION" \
   --schedule="0 * * * *" --time-zone=Europe/Lisbon \
   --uri="$URL/jobs/catalogue-sync" --http-method=POST \
   --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=300s
-gcloud scheduler jobs create http wa-keepalive --location="$REGION" \
-  --schedule="0 9 * * 1" --time-zone=Europe/Lisbon \
-  --uri="$URL/jobs/keepalive" --http-method=POST \
-  --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=60s
+gcloud scheduler jobs create http wa-lead-reminders --location="$REGION" \
+  --schedule="*/15 * * * *" --time-zone=Europe/Lisbon \
+  --uri="$URL/jobs/lead-reminders" --http-method=POST \
+  --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=120s
+gcloud scheduler jobs create http wa-privacy-retention --location="$REGION" \
+  --schedule="30 3 * * *" --time-zone=Europe/Lisbon \
+  --uri="$URL/jobs/privacy-retention" --http-method=POST \
+  --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=300s
+gcloud scheduler jobs create http wa-weekly-insights --location="$REGION" \
+  --schedule="0 8 * * 1" --time-zone=Europe/Lisbon \
+  --uri="$URL/jobs/weekly-insights" --http-method=POST \
+  --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=300s
 gcloud scheduler jobs run wa-catalogue-sync --location="$REGION"   # run it once now
 ```
 
-The secret is stored in the job's configuration, readable by project owners only. After rotating `JOBS_SECRET`, run `gcloud scheduler jobs update http <job> --location="$REGION" --update-headers="x-jobs-secret=<new>"` for both jobs.
+`wa-lead-reminders` ([WA-024](tickets/WA-024-leads-pipeline.md)) emails a lead's owner once it is still `new` after the client's `lead.response_time_hours` (default 8) counted in the branch's opening hours, and the branch's admins once after 24 working hours. Each reminder is claimed in the database before it is sent, so a retried or overlapping run never sends one twice; the answer is `{ checked, owner, admin }`. Every 15 minutes keeps a reminder at most 15 minutes late; it is a short request (one query, mostly no email), well inside the Cloud Run free tier.
+
+There is no separate keep-alive job: the hourly catalogue sync and the lead reminders touch the database far more often than Supabase's 7-day pause, so the three jobs stay inside Cloud Scheduler's free tier. `POST /jobs/keepalive` still exists for a manual ping.
+
+The daily privacy retention job ([WA-028](tickets/WA-028-privacy-tools.md)) deletes customers with no activity for longer than the client's `privacy.retention_months` (default 24), at most 500 per client and run, through the same handlers as a delete from the dashboard; leads are anonymised, and each deletion is in the privacy audit log as "Apagado por retenção". `?client=<id>` runs one client. Admins see whom it deletes in the next 7 days in Privacidade → Retenção.
+
+`wa-weekly-insights` ([WA-029](tickets/WA-029-insights.md)) emails each client's admins, on Monday at 08:00, last week's overview (conversations, leads by type, handoffs, quoted, won/lost, the team's median first response, Claude's cost) and the top five "couldn't answer" topics. Each client's week is claimed in `insight_reports` before sending, so a retry never sends it twice; `?client=<id>` runs one client. It is the fourth job: Cloud Scheduler's free tier covers three per billing account, the fourth costs about $0.10 a month.
+
+The secret is stored in the job's configuration, readable by project owners only. After rotating `JOBS_SECRET`, run `gcloud scheduler jobs update http <job> --location="$REGION" --update-headers="x-jobs-secret=<new>"` for every job.
 
 ## Verify
 
@@ -255,6 +308,7 @@ The secret is stored in the job's configuration, readable by project owners only
 5. **Logs:** `gcloud run services logs read "$SERVICE" --region="$REGION" --limit=50`.
 6. **Scheduler:** `gcloud scheduler jobs describe wa-catalogue-sync --location="$REGION"` shows the last attempt's status.
 7. **Costs:** after a few days, the billing report for the project shows €0.00.
+8. **Dashboard:** open `$URL/admin/` on a phone, sign in with the first admin's email, open Definições → Equipa and invite a colleague; `curl -s "$URL/api/admin/me"` answers 401.
 
 ## Day to day
 

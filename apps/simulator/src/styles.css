@@ -1,30 +1,12 @@
-/* Simulator styles. Kept global (one sheet) so component style budgets stay small. */
+/*
+ * Simulator styles. Kept global (one sheet) so component style budgets stay small. The shared
+ * tokens (colours, font) come from packages/shared/styles/tokens.css, loaded first.
+ */
 :root {
-  --teal: #008069;
-  --teal-dark: #075e54;
-  --green-accent: #25a366;
   --bubble-in: #d9fdd3; /* customer (right) */
   --bubble-out: #ffffff; /* business (left) */
   --chat-bg: #efeae2;
-  --text: #111b21;
-  --muted: #667781;
   --tick-read: #53bdeb;
-  --border: #d1d7db;
-  --page: #dfe3e6;
-  --panel: #ffffff;
-  --danger: #c0392b;
-  color-scheme: light;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif,
-    'Apple Color Emoji',
-    'Segoe UI Emoji';
-  color: var(--text);
 }
 
 *,
@@ -707,6 +689,32 @@ app-chat-phone {
   border-radius: 6px;
   background: #ccc;
   min-height: 80px;
+}
+/* WA-025: a document (quote PDF), as WhatsApp shows it: icon and file name in a grey box. */
+.bubble__doc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -1px -3px 4px -4px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.05);
+  color: inherit;
+  text-decoration: none;
+}
+.bubble__doc-icon {
+  flex: none;
+  padding: 6px 4px;
+  border-radius: 3px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.bubble__doc-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
 }
 .bubble__meta {
   float: right;

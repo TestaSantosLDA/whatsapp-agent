@@ -24,7 +24,7 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.css"]
+            "styles": ["../../packages/shared/styles/tokens.css", "src/styles.css"]
           },
           "configurations": {
             "production": {

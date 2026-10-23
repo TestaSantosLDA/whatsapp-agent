@@ -4,6 +4,7 @@ import { createApp, type AppDeps } from '../app.js';
 import { ClientRegistry } from '../clients/registry.js';
 import { openDb } from '../db/index.js';
 import { loadEnv } from '../env.js';
+import { MemoryFileStore } from '../knowledge/file-store.js';
 
 export const SECRET = 'test-simulator-secret';
 
@@ -45,7 +46,19 @@ export async function testApp(
   opts: {
     clients?: ClientConfig[];
     env?: Record<string, string>;
-  } & Pick<AppDeps, 'responder' | 'queue' | 'debounceMs' | 'serveSimulator'> = {},
+  } & Pick<
+    AppDeps,
+    | 'responder'
+    | 'queue'
+    | 'debounceMs'
+    | 'serveSimulator'
+    | 'serveAdmin'
+    | 'supabaseAdmin'
+    | 'jwks'
+    | 'files'
+    | 'documentReader'
+    | 'quotePdf'
+  > = {},
 ) {
   const env = loadEnv({
     SIMULATOR_WEBHOOK_SECRET: SECRET,
@@ -63,8 +76,24 @@ export async function testApp(
     queue: opts.queue,
     debounceMs: opts.debounceMs ?? 0,
     serveSimulator: opts.serveSimulator ?? false,
+    serveAdmin: opts.serveAdmin ?? false,
+    supabaseAdmin: opts.supabaseAdmin,
+    jwks: opts.jwks,
+    files: opts.files ?? new MemoryFileStore(),
+    documentReader: opts.documentReader,
+    quotePdf: opts.quotePdf,
   });
-  return { ...built, env, db: handle.db, close: () => handle.close() };
+  return {
+    ...built,
+    env,
+    clients,
+    db: handle.db,
+    close: async () => {
+      // Let the inbox finish reacting to the last events before the database goes away.
+      await built.inbox.flush();
+      await handle.close();
+    },
+  };
 }
 
 export function postSimWebhook(

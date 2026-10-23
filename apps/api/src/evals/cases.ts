@@ -17,6 +17,8 @@ export const useCases = [
   'handoff',
   'treehouse',
   'guardrails',
+  /** WA-027: a returning customer served from their profile. */
+  'profile',
 ] as const;
 export type UseCase = (typeof useCases)[number];
 
@@ -62,6 +64,13 @@ export const checksSchema = z
     emails: z.array(z.string()).default([]),
     /** 1-based turns that must get no reply (the bot is silent after a handoff). */
     silent_turns: z.array(z.number().int().positive()).default([]),
+    /** WA-027: these profile fields hold a value at the end (noted by the agent). */
+    profile: z.array(z.string()).optional(),
+    /**
+     * WA-027: the agent's replies in the main conversation are shorter on average than in the
+     * `earlier` conversations (the profile said "short answers").
+     */
+    shorter_than_earlier: z.boolean().optional(),
   })
   .strict();
 export type EvalChecks = z.infer<typeof checksSchema>;
@@ -78,6 +87,21 @@ export const evalCaseSchema = z
       .object({ name: z.string().min(1).max(60).default('Ana Costa') })
       .strict()
       .default({ name: 'Ana Costa' }),
+    /**
+     * WA-027: conversations the same customer had before, played first, each closed afterwards,
+     * so `turns` start a new conversation with whatever the agent learnt (profile, last orders).
+     */
+    earlier: z
+      .array(
+        z
+          .object({
+            now: z.iso.datetime({ offset: true }),
+            turns: z.array(turnSchema).min(1).max(8),
+          })
+          .strict(),
+      )
+      .max(3)
+      .optional(),
     turns: z.array(turnSchema).min(1).max(12),
     checks: checksSchema.default(checksSchema.parse({})),
     /** What the LLM grader judges: tone, helpfulness and the facts that need judgement. */
@@ -96,6 +120,29 @@ export const setupSchema = z
     catalogue: z.string().optional(),
     /** Merged over the client's `product_data` for the eval only. */
     product_data: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+    /** Approved product data as the dashboard stores it (WA-026): wins over product_data. */
+    product_overrides: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+    /** Live knowledge documents for search_documents (WA-026), as passages: no file, no Claude. */
+    documents: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            passages: z
+              .array(
+                z
+                  .object({
+                    page: z.number().int().positive().optional(),
+                    label: z.string().optional(),
+                    text: z.string().min(1),
+                  })
+                  .strict(),
+              )
+              .min(1),
+          })
+          .strict(),
+      )
+      .default([]),
   })
   .strict();
 export type EvalSetup = z.infer<typeof setupSchema>;
@@ -120,7 +167,7 @@ export function loadEvalSet(clientId: string, root = evalsRoot): EvalSet {
     if (seen.has(c.id)) throw new Error(`Duplicate eval case id "${c.id}"`);
     seen.add(c.id);
   }
-  let setup: EvalSetup = { product_data: {} };
+  let setup: EvalSetup = { product_data: {}, product_overrides: {}, documents: [] };
   try {
     setup = setupSchema.parse(JSON.parse(readFileSync(join(dir, 'setup.json'), 'utf8')));
   } catch (error) {

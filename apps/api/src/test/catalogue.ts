@@ -65,6 +65,8 @@ export function toolContext(db: Db, client: ClientConfig = shopClient()): ToolCo
       name: 'Rui',
       language: null,
       consent: {},
+      profilingOptOut: false,
+      customerId: null,
       createdAt: now,
     },
     conversation: {
@@ -73,6 +75,9 @@ export function toolContext(db: Db, client: ClientConfig = shopClient()): ToolCo
       contactId: '00000000-0000-0000-0000-000000000001',
       status: 'bot',
       lastActivityAt: now,
+      branchId: null,
+      assignedMemberId: null,
+      teamReadAt: null,
       createdAt: now,
     },
   };

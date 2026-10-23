@@ -129,7 +129,10 @@ export const clientConfigSchema = z.object({
   lead: z.object({
     request_types: z.array(z.string()).min(1),
     required_fields: z.array(leadFieldSchema).default([]),
+    /** What the customer is told, e.g. "um dia útil". Editable in the dashboard (WA-022). */
     response_time: z.string(),
+    /** The same promise in working hours, for no-reply alerts (WA-024). Empty = 8 (one day). */
+    response_time_hours: z.number().positive().max(200).optional(),
     /** Extra sinks; `db` is always written whether listed or not. */
     sinks: z.array(leadSinkSchema).default(['db']),
     /** Google Sheet the `sheets` sink appends to (service account from the environment). */
@@ -157,6 +160,47 @@ export const clientConfigSchema = z.object({
     .prefault({}),
   /** Linked in the first reply to a new contact. */
   privacy_policy_url: z.url().optional(),
+  /** WA-028: contacts with no activity for this many months are deleted by a scheduled job. */
+  privacy: z
+    .object({ retention_months: z.number().int().min(1).max(120).default(24) })
+    .prefault({}),
+  /** WA-025: quote PDFs (letterhead, numbering, IVA, conditions). */
+  quotes: z
+    .object({
+      /** Number prefix: `JUL` gives JUL-2026-0042. Default: the client id in capitals. */
+      prefix: z
+        .string()
+        .regex(/^[A-Z0-9]{1,10}$/)
+        .optional(),
+      /** Digits of the yearly sequence number. */
+      number_digits: z.number().int().min(1).max(8).default(4),
+      validity_days: z.number().int().min(1).max(365).default(30),
+      /** IVA rate of new lines, in percent. Catalogue prices include it. */
+      vat_percent: z.number().min(0).max(100).default(23),
+      /** The letterhead: legal name, tax number and contacts. Default: the client's name. */
+      company: z
+        .object({
+          legal_name: z.string().optional(),
+          nif: z.string().optional(),
+          address: z.string().optional(),
+          phone: z.string().optional(),
+          email: z.string().optional(),
+          website: z.string().optional(),
+        })
+        .prefault({}),
+      /** PNG or JPEG logo for the letterhead, fetched once and cached. */
+      logo_url: z.url().optional(),
+      /** Conditions printed on every quote, one per line. */
+      conditions: z.array(z.string()).default([]),
+      /** Legal footer on every page (registry, share capital...). */
+      footer: z.string().optional(),
+    })
+    .prefault({}),
+  /**
+   * WA-027: the agent notes and uses customers' service preferences (note_profile). Off unless
+   * the client turns it on, because its privacy notice must mention it first.
+   */
+  profiling: z.object({ enabled: z.boolean().default(false) }).prefault({}),
   policies: z.record(z.string(), z.string()).default({}),
   product_data: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
   /** Client-specific conversation playbooks added to the system prompt (WA-017). */

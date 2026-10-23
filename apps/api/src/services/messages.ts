@@ -10,6 +10,7 @@ import {
 import type { InboundMessage } from '../channels/inbound.js';
 import type { Db } from '../db/index.js';
 import { contacts, conversations, messages } from '../db/schema.js';
+import { ensureCustomer } from '../customers/records.js';
 
 export type ContactRow = typeof contacts.$inferSelect;
 export type ConversationRow = typeof conversations.$inferSelect;
@@ -28,6 +29,7 @@ export class MessageService {
     return channel;
   }
 
+  /** The contact for this number, created with its customer record (WA-027) if new. */
   async upsertContact(clientId: string, waId: string, name?: string): Promise<ContactRow> {
     const [row] = await this.db
       .insert(contacts)
@@ -37,6 +39,8 @@ export class MessageService {
         set: name ? { name } : { waId },
       })
       .returning();
+    if (!row!.customerId)
+      row!.customerId = (await ensureCustomer(this.db, clientId, row!.id)) ?? null;
     return row!;
   }
 
@@ -100,6 +104,8 @@ export class MessageService {
     conversationId: string,
     to: string,
     outbound: OutboundMessage,
+    /** WA-023: a reply a team member sent from the inbox. */
+    opts: { sentByMemberId?: string } = {},
   ): Promise<MessageRow> {
     const payload = toMetaPayload(to, outbound);
     const { channelMessageId } = await this.channelFor(client).send(client, payload);
@@ -114,12 +120,33 @@ export class MessageService {
         text: payloadText(payload),
         payload,
         status: 'sent',
+        sentByMemberId: opts.sentByMemberId ?? null,
       })
       .returning();
     const key = EventBus.key(client.id, to);
     this.bus.publish(key, { type: 'typing', on: false });
     this.bus.publish(key, { type: 'message', message: toSimChatMessage(row!) });
     return row!;
+  }
+
+  /**
+   * Sends without storing the message anywhere: the confirmation that a customer's data was
+   * deleted (WA-028) must not leave a new trace of them.
+   */
+  async sendWithoutHistory(client: ClientConfig, to: string, outbound: OutboundMessage) {
+    const payload = toMetaPayload(to, outbound);
+    const { channelMessageId } = await this.channelFor(client).send(client, payload);
+    const key = EventBus.key(client.id, to);
+    this.bus.publish(key, { type: 'typing', on: false });
+    this.bus.publish(key, {
+      type: 'message',
+      message: {
+        id: channelMessageId,
+        direction: 'outbound',
+        timestamp: new Date().toISOString(),
+        payload,
+      },
+    });
   }
 
   /** Messages of the contact's open conversation, oldest first. */

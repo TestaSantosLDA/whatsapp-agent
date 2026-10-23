@@ -30,6 +30,8 @@ export interface TurnInput {
 /** Decides what to answer. The echo responder now, the Claude agent from WA-009. */
 export interface Responder {
   respond(input: TurnInput): Promise<OutboundMessage[]>;
+  /** Forget anything cached for a client: its settings changed (WA-022). */
+  invalidate?(clientId: string): void;
 }
 
 /**
@@ -61,6 +63,17 @@ export function processConversation(deps: {
       )
       .orderBy(asc(messages.createdAt));
 
+  const markProcessed = (rows: MessageRow[]) =>
+    deps.db
+      .update(messages)
+      .set({ processedAt: new Date() })
+      .where(
+        inArray(
+          messages.id,
+          rows.map((m) => m.id),
+        ),
+      );
+
   return async ({ clientId, conversationId }: ProcessConversationPayload): Promise<void> => {
     const client = deps.clients.get(clientId);
     if (!client) throw new Error(`Unknown client "${clientId}"`);
@@ -75,6 +88,13 @@ export function processConversation(deps: {
       .where(eq(conversations.id, conversationId));
     if (!row) throw new Error(`Unknown conversation "${conversationId}"`);
     const { conversation, contact } = row;
+
+    // A person has taken over (WA-016, WA-023): the bot stays silent, with no "typing…" either.
+    // The messages count as handled; the person sees them in the dashboard inbox.
+    if (conversation.status === 'human') {
+      await markProcessed(pending);
+      return;
+    }
 
     // Show the customer their messages were read and that we are typing, then wait for the burst
     // to end, marking any message that arrives meanwhile.
@@ -96,11 +116,12 @@ export function processConversation(deps: {
       await markNew();
     }
 
-    // A person has taken over: the bot stays silent.
-    const replies =
-      conversation.status === 'human'
-        ? []
-        : await deps.responder.respond({ client, conversation, contact, newMessages: pending });
+    const replies = await deps.responder.respond({
+      client,
+      conversation,
+      contact,
+      newMessages: pending,
+    });
 
     for (const reply of replies) {
       await deps.messages.send(client, conversation.id, contact.waId, reply);
@@ -108,15 +129,7 @@ export function processConversation(deps: {
 
     // Only now are the messages answered. If a send fails, the retry answers them again (a
     // partial failure can repeat a reply), and after the last retry the failure handler hands over.
-    await deps.db
-      .update(messages)
-      .set({ processedAt: new Date() })
-      .where(
-        inArray(
-          messages.id,
-          pending.map((m) => m.id),
-        ),
-      );
+    await markProcessed(pending);
   };
 }
 

@@ -147,6 +147,7 @@ lead:
   required_fields: [name, location, request_type]
   # TODO: confirm the response time with Jular.
   response_time: um dia útil
+  response_time_hours: 8
   # The database is always written. Add `sheets` and the block below once Jular shares a sheet
   # with the service account in GOOGLE_SERVICE_ACCOUNT_JSON.
   sinks: [db]
@@ -168,9 +169,39 @@ handoff:
     - O cliente pede uma visita técnica, uma medição em obra ou uma reunião.
     - Obras de pavimento ou deck acima de 300 m², para a equipa preparar uma proposta.
 
-privacy_policy_url: https://jular.pt/politica-de-privacidade
+# WA-025: quote PDFs. Numbered JUL-<year>-0001 per year.
+# TODO from Jular: letterhead and logo, legal name and NIF, legal footer, quote conditions,
+# numbering preference, and who may give which discounts.
+quotes:
+  prefix: JUL
+  number_digits: 4
+  validity_days: 30
+  vat_percent: 23
+  company:
+    legal_name: Jular Madeiras
+    address: Estrada Nacional 3, Km 5,9, Vila Nova da Rainha, 2050-522 Azambuja
+    phone: '+351 219 484 000'
+    email: lojaonline@jular.pt
+    website: jular.pt
+  # logo_url: https://... (PNG or JPEG)
+  conditions:
+    - Preços em euros. O IVA à taxa legal em vigor é indicado em separado.
+    - O transporte não inclui a descarga, que é feita pelo cliente (camião sem grua nem plataforma).
+    - Os prazos de entrega são indicativos e confirmados na adjudicação.
+    - 'Pagamento: MB Way, Multibanco, Payshop ou transferência bancária.'
+  footer: Jular Madeiras · Livro de Reclamações disponível em www.livroreclamacoes.pt
 
-# Agent tools (apps/api/src/agent/registry.ts). offer_choices and handoff_to_human are always on.
+privacy_policy_url: https://jular.pt/politica-de-privacidade
+# WA-028: customers with no activity for this many months are deleted by a daily job.
+privacy:
+  retention_months: 24
+# WA-027: the agent notes factual service preferences (detail level, usual products, delivery)
+# and adapts its replies. Jular's privacy notice must mention it; customers can object.
+profiling:
+  enabled: true
+
+# Agent tools (apps/api/src/agent/registry.ts). offer_choices, handoff_to_human and
+# request_data_deletion are always on.
 tools:
   - search_products
   - get_product
@@ -179,6 +210,7 @@ tools:
   - create_checkout_link
   - save_lead
   - send_order_draft
+  - search_documents
 
 model:
   id: claude-opus-5-5

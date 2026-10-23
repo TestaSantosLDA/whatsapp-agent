@@ -178,3 +178,58 @@ describe('serving the simulator', () => {
     expect((await a.request('/..%2F..%2Fetc%2Fpasswd')).status).not.toBe(200);
   });
 });
+
+describe('serving the team dashboard at /admin', () => {
+  function dist(title: string) {
+    const dir = mkdtempSync(join(tmpdir(), 'wa-spa-'));
+    cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+    writeFileSync(join(dir, 'index.html'), `<!doctype html><title>${title}</title>`);
+    writeFileSync(join(dir, `${title}-ABCD1234.js`), 'console.log(1)');
+    writeFileSync(join(dir, 'chunk-D-Rz4jH9.js'), 'console.log(2)');
+    return dir;
+  }
+
+  async function app(withAdmin = true) {
+    const env: Record<string, string> = {
+      SIMULATOR_DIST_DIR: dist('sim'),
+      ADMIN_DIST_DIR: withAdmin ? dist('admin') : join(tmpdir(), 'wa-no-admin-dist'),
+    };
+    const t = await testApp({ env, serveSimulator: true, serveAdmin: true });
+    cleanups.push(t.close);
+    return t.app;
+  }
+  const html = { headers: { accept: 'text/html' } };
+
+  it('serves the dashboard and its client-side routes, the simulator everywhere else', async () => {
+    const a = await app();
+    for (const path of ['/admin', '/admin/', '/admin/settings', '/admin/leads/123']) {
+      const res = await a.request(path, html);
+      expect(res.status, path).toBe(200);
+      expect(await res.text(), path).toContain('<title>admin</title>');
+    }
+    const js = await a.request('/admin/admin-ABCD1234.js');
+    expect(js.headers.get('cache-control')).toContain('immutable');
+    const chunk = await a.request('/admin/chunk-D-Rz4jH9.js');
+    expect(chunk.headers.get('cache-control')).toContain('immutable');
+    expect((await a.request('/admin/sim-ABCD1234.js')).status).toBe(404);
+    expect(await (await a.request('/', html)).text()).toContain('<title>sim</title>');
+    expect(await (await a.request('/administration', html)).text()).toContain('<title>sim</title>');
+    expect((await a.request('/admin/..%2F..%2Fetc%2Fpasswd')).status).not.toBe(200);
+  });
+
+  it('keeps /admin/config and /api/admin for the API', async () => {
+    const a = await app();
+    const config = await a.request('/admin/config', html);
+    expect(config.headers.get('content-type')).toContain('application/json');
+    expect(config.headers.get('cache-control')).toBe('no-store');
+    const api = await a.request('/api/admin/me', html);
+    expect(api.status).toBe(401);
+    expect(api.headers.get('content-type')).toContain('application/json');
+  });
+
+  it('never falls back to the simulator below /admin when the dashboard is not built', async () => {
+    const a = await app(false);
+    expect((await a.request('/admin/settings', html)).status).toBe(404);
+    expect(await (await a.request('/', html)).text()).toContain('<title>sim</title>');
+  });
+});

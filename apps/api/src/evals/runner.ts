@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type Anthropic from '@anthropic-ai/sdk';
 import type { ClientConfig, MetaSendMessage } from '@wa/shared';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
 import { ClaudeResponder, type ToolCallRecord } from '../agent/claude-responder.js';
 import { agentTools } from '../agent/registry.js';
 import { createApp } from '../app.js';
@@ -17,10 +17,25 @@ import { ShopifyPublicSource, type CatalogueSource } from '../catalogue/source.j
 import { syncCatalogue } from '../catalogue/sync.js';
 import { ClientRegistry } from '../clients/registry.js';
 import { openDb, type Db } from '../db/index.js';
-import { agentRuns, contacts, conversations, leads, messages, outbox } from '../db/schema.js';
+import {
+  agentRuns,
+  contacts,
+  conversations,
+  customerProfileFields,
+  leads,
+  messages,
+  outbox,
+} from '../db/schema.js';
 import { loadEnv } from '../env.js';
+import { seedDocument, seedProductOverrides } from '../knowledge/seed.js';
 import type { EvalCase, EvalSetup } from './cases.js';
-import { runChecks, type CheckResult, type ToolCallSummary, type Transcript } from './checks.js';
+import {
+  runChecks,
+  type CheckResult,
+  type ToolCallSummary,
+  type Transcript,
+  type TurnTranscript,
+} from './checks.js';
 import { gradeConversation, type Grade } from './grader.js';
 
 export interface CaseResult {
@@ -49,6 +64,8 @@ export interface RunOptions {
   /** Default: the same client as the agent. */
   graderAnthropic?: Anthropic;
   source: CatalogueSource;
+  /** Seeds the eval set's knowledge documents and approved product data (WA-026). */
+  setup?: EvalSetup;
   concurrency?: number;
   /** Longest a single turn may take before the case is abandoned. */
   turnTimeoutMs?: number;
@@ -92,6 +109,15 @@ export function snapshotPath(dir: string, setup: EvalSetup): string {
   return join(dir, setup.catalogue ?? 'catalogue.json');
 }
 
+/** The eval set's documents and approved product data, as if uploaded and approved. */
+export async function seedKnowledge(db: Db, client: ClientConfig, setup?: EvalSetup) {
+  if (!setup) return;
+  for (const doc of setup.documents) await seedDocument(db, client.id, doc);
+  if (Object.keys(setup.product_overrides).length) {
+    await seedProductOverrides(db, client, setup.product_overrides);
+  }
+}
+
 /** Plays every case and returns the results in case order. */
 export async function runCases(opts: RunOptions): Promise<CaseResult[]> {
   const { client } = opts;
@@ -101,6 +127,7 @@ export async function runCases(opts: RunOptions): Promise<CaseResult[]> {
   try {
     const synced = await syncCatalogue({ db, client, source: opts.source });
     if (!synced.ok) throw new Error(`catalogue sync failed: ${synced.error}`);
+    await seedKnowledge(db, client, opts.setup);
 
     // One responder per customer phone, so each case has its own clock.
     const responders = new Map<string, ClaudeResponder>();
@@ -128,17 +155,19 @@ export async function runCases(opts: RunOptions): Promise<CaseResult[]> {
       for (let i = next++; i < opts.cases.length; i = next++) {
         const evalCase = opts.cases[i]!;
         const phone = phoneFor(evalCase, i);
+        // Earlier conversations (WA-027) run on their own clock, then the case's.
+        const clock = { now: new Date(evalCase.now) };
         responders.set(
           phone,
           new ClaudeResponder({
             db,
             anthropic: opts.anthropic,
             tools: agentTools,
-            now: () => new Date(evalCase.now),
+            now: () => clock.now,
             backoffice: built.backoffice,
           }),
         );
-        results[i] = await playCase({ ...opts, db, app: built.app, phone, evalCase });
+        results[i] = await playCase({ ...opts, db, app: built.app, phone, evalCase, clock });
         opts.onCaseDone?.(results[i]!, ++done, opts.cases.length);
       }
     };
@@ -162,7 +191,13 @@ function phoneFor(evalCase: EvalCase, index: number): string {
 type App = ReturnType<typeof createApp>['app'];
 
 async function playCase(
-  opts: RunOptions & { db: Db; app: App; phone: string; evalCase: EvalCase },
+  opts: RunOptions & {
+    db: Db;
+    app: App;
+    phone: string;
+    evalCase: EvalCase;
+    clock: { now: Date };
+  },
 ): Promise<CaseResult> {
   const { db, app, phone, evalCase, client } = opts;
   const transcript: Transcript = { turns: [], status: 'bot', leads: [], emails: [] };
@@ -173,8 +208,10 @@ async function playCase(
   let seenRuns = 0;
   let error: string | undefined;
 
-  try {
-    for (const turn of evalCase.turns) {
+  /** Plays turns in the customer's open conversation (a new one after the last was closed). */
+  const playTurns = async (turns: EvalCase['turns']): Promise<TurnTranscript[]> => {
+    const played: TurnTranscript[] = [];
+    for (const turn of turns) {
       const text = typeof turn === 'string' ? turn : 'text' in turn ? turn.text : undefined;
       let body: Record<string, unknown>;
       let customer: string;
@@ -234,7 +271,7 @@ async function playCase(
       if (turnRuns.length && turnRuns.every((r) => r.error)) {
         turnError ??= `agent failed: ${turnRuns.at(-1)!.error}`;
       }
-      transcript.turns.push({
+      played.push({
         customer,
         replies,
         toolCalls: turnRuns.flatMap((r) => (r.toolCalls as ToolCallRecord[]).map(summariseCall)),
@@ -242,6 +279,30 @@ async function playCase(
         costUsd: turnCost,
         error: turnError,
       });
+    }
+    return played;
+  };
+
+  try {
+    // WA-027: earlier conversations of the same customer, each closed before the next.
+    for (const earlier of evalCase.earlier ?? []) {
+      opts.clock.now = new Date(earlier.now);
+      (transcript.earlier ??= []).push(await playTurns(earlier.turns));
+      if (conversationId) {
+        await db
+          .update(conversations)
+          .set({ status: 'closed' })
+          .where(eq(conversations.id, conversationId));
+      }
+      conversationId = undefined;
+      seenOutbound = 0;
+      seenRuns = 0;
+    }
+    opts.clock.now = new Date(evalCase.now);
+    transcript.turns = await playTurns(evalCase.turns);
+
+    if (evalCase.earlier?.length || evalCase.checks.profile) {
+      transcript.profile = await profileOf(db, client.id, phone);
     }
 
     if (conversationId) {
@@ -295,16 +356,39 @@ async function playCase(
   };
 }
 
+/** The customer's open conversation (earlier ones of the case are closed). */
 async function findConversation(db: Db, clientId: string, phone: string): Promise<string> {
   const [row] = await db
     .select({ id: conversations.id })
     .from(conversations)
     .innerJoin(contacts, eq(contacts.id, conversations.contactId))
-    .where(and(eq(contacts.clientId, clientId), eq(contacts.waId, phone)))
+    .where(
+      and(
+        eq(contacts.clientId, clientId),
+        eq(contacts.waId, phone),
+        ne(conversations.status, 'closed'),
+      ),
+    )
     .orderBy(asc(conversations.createdAt))
     .limit(1);
   if (!row) throw new Error(`no conversation for ${phone}`);
   return row.id;
+}
+
+/** The customer's profile at the end of the case, with the words it was noted from (WA-027). */
+async function profileOf(db: Db, clientId: string, phone: string) {
+  const rows = await db
+    .select({
+      field: customerProfileFields.field,
+      value: customerProfileFields.value,
+      source: customerProfileFields.source,
+      evidence: customerProfileFields.evidence,
+    })
+    .from(customerProfileFields)
+    .innerJoin(contacts, eq(contacts.customerId, customerProfileFields.customerId))
+    .where(and(eq(contacts.clientId, clientId), eq(contacts.waId, phone)))
+    .orderBy(asc(customerProfileFields.field));
+  return rows;
 }
 
 /** The job marks the customer's messages processed after replying (or after failing for good). */
@@ -363,6 +447,8 @@ export function renderOutbound(payload: unknown): string {
       return p.text.body;
     case 'image':
       return `[image] ${p.image.caption ?? ''}`.trim();
+    case 'document':
+      return `[document ${p.document.filename ?? ''}] ${p.document.caption ?? ''}`.trim();
     case 'interactive': {
       const action = p.interactive.action;
       if ('buttons' in action) {

@@ -9,7 +9,9 @@ export interface TurnLog {
 
 /**
  * Rebuilds the conversation for Claude from stored messages: customer messages become user
- * turns and our sends become assistant turns, consecutive ones merged.
+ * turns and our sends become assistant turns, consecutive ones merged. Replies a colleague sent
+ * from the inbox (WA-023) are assistant turns too, marked with COLLEAGUE_REPLY_PREFIX, so after
+ * the conversation is handed back the agent knows what the person said.
  *
  * Each earlier reply is preceded by a system message listing the tools Claude used for it and
  * what they returned, so variant ids, prices and quantities from earlier turns stay known (a
@@ -59,9 +61,14 @@ export function toClaudeMessages(rows: MessageRow[], logs: TurnLog[] = []): Beta
   return out;
 }
 
+/** Prefix of a reply a colleague sent from the dashboard inbox (WA-023), as Claude sees it. */
+export const COLLEAGUE_REPLY_PREFIX = '[Sent by a colleague from the team, not by you]';
+
 function textFor(row: MessageRow): string {
   const text = (row.text ?? '').trim() || `[${row.type}]`;
-  if (row.direction !== 'inbound') return text;
+  if (row.direction !== 'inbound') {
+    return row.sentByMemberId ? `${COLLEAGUE_REPLY_PREFIX} ${text}` : text;
+  }
   // A tapped button or list row: its id says what was picked (e.g. product:<variant_id>);
   // the title alone is cut to 20-24 characters and can be the same for several variants.
   const interactive = (row.payload as { interactive?: Record<string, { id?: string }> })

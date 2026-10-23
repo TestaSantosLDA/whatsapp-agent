@@ -1,34 +1,84 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { clientConfigSchema, coreLeadKeys, type ClientConfig } from '@wa/shared';
+import {
+  applyClientSettings,
+  clientConfigSchema,
+  coreLeadKeys,
+  type ClientConfig,
+  type ClientSettingsOverrides,
+} from '@wa/shared';
 import { parse } from 'yaml';
 
+/**
+ * Every client's config: clients/<id>.yaml with the team's settings from the dashboard applied
+ * on top (WA-022). `get` always returns the merged config, so a settings change applies to the
+ * next turn, lead or email without a restart. Listeners hear about every change (the agent
+ * rebuilds its cached system prompt).
+ *
+ * Overrides live in memory once loaded: the service runs one instance (docs/deploy.md). A second
+ * instance would need to reload them (e.g. Postgres LISTEN/NOTIFY) before scaling out.
+ */
 export class ClientRegistry {
-  private readonly byId = new Map<string, ClientConfig>();
-  private readonly byPhoneNumberId = new Map<string, ClientConfig>();
+  private readonly base = new Map<string, ClientConfig>();
+  private readonly merged = new Map<string, ClientConfig>();
+  private readonly overrides = new Map<string, ClientSettingsOverrides>();
+  private readonly byPhoneNumberId = new Map<string, string>();
+  private readonly listeners = new Set<(clientId: string) => void>();
 
   constructor(clients: ClientConfig[]) {
     for (const client of clients) {
-      if (this.byId.has(client.id)) throw new Error(`Duplicate client id "${client.id}"`);
+      if (this.base.has(client.id)) throw new Error(`Duplicate client id "${client.id}"`);
       const phoneId = client.channel.phone_number_id;
       if (this.byPhoneNumberId.has(phoneId)) {
         throw new Error(`Duplicate phone_number_id "${phoneId}" (client "${client.id}")`);
       }
-      this.byId.set(client.id, client);
-      this.byPhoneNumberId.set(phoneId, client);
+      this.base.set(client.id, client);
+      this.merged.set(client.id, client);
+      this.byPhoneNumberId.set(phoneId, client.id);
     }
   }
 
+  /** The config in effect: the file plus the team's settings. */
   get(id: string): ClientConfig | undefined {
-    return this.byId.get(id);
+    return this.merged.get(id);
   }
 
   getByPhoneNumberId(phoneNumberId: string): ClientConfig | undefined {
-    return this.byPhoneNumberId.get(phoneNumberId);
+    const id = this.byPhoneNumberId.get(phoneNumberId);
+    return id === undefined ? undefined : this.merged.get(id);
   }
 
   all(): ClientConfig[] {
-    return [...this.byId.values()];
+    return [...this.merged.values()];
+  }
+
+  /** clients/<id>.yaml as loaded, without the team's settings. */
+  fileConfig(id: string): ClientConfig | undefined {
+    return this.base.get(id);
+  }
+
+  settingsOverrides(id: string): ClientSettingsOverrides {
+    return this.overrides.get(id) ?? {};
+  }
+
+  /**
+   * Replaces a client's overrides. The merged config is validated with the client schema first;
+   * an invalid result throws and changes nothing.
+   */
+  setOverrides(id: string, overrides: ClientSettingsOverrides): ClientConfig {
+    const base = this.base.get(id);
+    if (!base) throw new Error(`Unknown client "${id}"`);
+    const merged = clientConfigSchema.parse(applyClientSettings(base, overrides));
+    this.overrides.set(id, overrides);
+    this.merged.set(id, merged);
+    for (const listener of this.listeners) listener(id);
+    return merged;
+  }
+
+  /** Called with the client id after every settings change. Returns an unsubscribe function. */
+  onChange(listener: (clientId: string) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 }
 

@@ -1,0 +1,28 @@
+/*
+ * Design tokens shared by the simulator (apps/simulator) and the team dashboard (apps/admin).
+ * Each app lists this file before its own styles.css in angular.json.
+ */
+:root {
+  --teal: #008069;
+  --teal-dark: #075e54;
+  --teal-soft: #e7f5f1;
+  --green-accent: #25a366;
+  --text: #111b21;
+  --muted: #667781;
+  --border: #d1d7db;
+  --page: #dfe3e6;
+  --panel: #ffffff;
+  --danger: #c0392b;
+  --danger-soft: #fde8e7;
+  --warn-soft: #fff5c4;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 4px rgb(0 0 0 / 0.08);
+  --font:
+    system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji';
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+  font-family: var(--font);
+  color: var(--text);
+}

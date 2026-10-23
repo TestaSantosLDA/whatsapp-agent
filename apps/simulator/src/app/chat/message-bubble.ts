@@ -22,6 +22,12 @@ import { ListInteractive, toMessageView } from './message-view';
           <img [src]="v.imageUrl" alt="Imagem" loading="lazy" />
         </a>
       }
+      @if (v.kind === 'document' && v.documentUrl) {
+        <a class="bubble__doc" [href]="v.documentUrl" target="_blank" rel="noopener noreferrer">
+          <span class="bubble__doc-icon" aria-hidden="true">PDF</span>
+          <span class="bubble__doc-name">{{ v.filename }}</span>
+        </a>
+      }
       @if (v.header) {
         <div class="bubble__header">{{ v.header }}</div>
       }

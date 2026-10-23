@@ -8,6 +8,9 @@ import { syncClients } from '../catalogue/sync.js';
 import type { ClientRegistry } from '../clients/registry.js';
 import type { Db } from '../db/index.js';
 import type { Env } from '../env.js';
+import type { LeadReminders } from '../leads/reminders.js';
+import type { PrivacyService } from '../privacy/service.js';
+import type { WeeklyInsights } from '../admin/overview/weekly.js';
 import type { RunResult } from '../queue/cloud-tasks.js';
 
 /**
@@ -20,8 +23,14 @@ export function jobsRoutes(deps: {
   db: Db;
   clients: ClientRegistry;
   sourceFor?: (client: ClientConfig) => CatalogueSource | undefined;
+  /** The retention job (WA-028). */
+  privacy?: Pick<PrivacyService, 'runRetention'>;
   /** Set when QUEUE=cloudtasks: runs a job that Cloud Tasks delivers to /jobs/run/:name. */
   runJob?: (name: string, payload: unknown, retryCount: number) => Promise<RunResult>;
+  /** WA-024: no-reply reminders for leads. */
+  leadReminders?: LeadReminders;
+  /** WA-029: the Monday email to admins. */
+  weeklyInsights?: Pick<WeeklyInsights, 'run'>;
 }) {
   const app = new Hono();
 
@@ -56,6 +65,43 @@ export function jobsRoutes(deps: {
   app.post('/keepalive', async (c) => {
     await deps.db.execute(sql`select 1`);
     return c.json({ ok: true });
+  });
+
+  // Every 15 minutes during the day (WA-024): reminds owners, then admins, of leads still `new`
+  // past the response time in working hours. Safe to run as often as you like.
+  app.post('/lead-reminders', async (c) => {
+    if (!deps.leadReminders) return c.text('Lead reminders not configured', 404);
+    return c.json(await deps.leadReminders.run());
+  });
+
+  // Mondays (WA-029): last week's overview and top "couldn't answer" topics to each client's
+  // admins. Sent once per client and week, however often it runs. `?client=<id>` runs one client.
+  app.post('/weekly-insights', async (c) => {
+    if (!deps.weeklyInsights) return c.text('Weekly insights not configured', 404);
+    const id = c.req.query('client');
+    if (id && !deps.clients.get(id)) return c.json({ error: `unknown client "${id}"` }, 404);
+    return c.json({ results: await deps.weeklyInsights.run(new Date(), id) });
+  });
+
+  // Daily privacy retention (WA-028): deletes contacts with no activity for longer than the
+  // client's privacy.retention_months. `?client=<id>` runs one client.
+  app.post('/privacy-retention', async (c) => {
+    const privacy = deps.privacy;
+    if (!privacy) return c.text('Privacy tools not configured', 404);
+    const id = c.req.query('client');
+    const clients = id ? [deps.clients.get(id)].filter((x) => x !== undefined) : deps.clients.all();
+    if (id && clients.length === 0) return c.json({ error: `unknown client "${id}"` }, 404);
+    const results: { clientId: string; ok: boolean; deleted: number; error?: string }[] = [];
+    for (const client of clients) {
+      try {
+        const { deleted } = await privacy.runRetention(client);
+        results.push({ clientId: client.id, ok: true, deleted });
+      } catch (error) {
+        console.error(`[privacy] retention failed for client ${client.id}`, error);
+        results.push({ clientId: client.id, ok: false, deleted: 0, error: String(error) });
+      }
+    }
+    return c.json({ results }, results.every((r) => r.ok) ? 200 : 502);
   });
 
   // Cloud Tasks delivery of a queued job. 500 asks Cloud Tasks to retry; after the last attempt

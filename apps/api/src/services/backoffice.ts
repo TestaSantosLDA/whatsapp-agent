@@ -10,7 +10,7 @@ import type {
 import { and, asc, eq, ne } from 'drizzle-orm';
 import { EventBus } from '../bus.js';
 import type { Db } from '../db/index.js';
-import { agentRuns, contacts, conversations, leads, outbox } from '../db/schema.js';
+import { agentRuns, contacts, conversations, leads, outbox, teamMembers } from '../db/schema.js';
 
 type LeadRow = typeof leads.$inferSelect;
 type EmailRow = typeof outbox.$inferSelect;
@@ -26,8 +26,11 @@ export class BackofficeService {
     readonly bus: EventBus<BackofficeEvent>,
   ) {}
 
-  publishLead(client: ClientConfig, phone: string, row: LeadRow): void {
-    this.publish(client.id, phone, { type: 'lead', lead: toBackofficeLead(client, row) });
+  publishLead(client: ClientConfig, phone: string, row: LeadRow, ownerName?: string | null): void {
+    this.publish(client.id, phone, {
+      type: 'lead',
+      lead: toBackofficeLead(client, row, ownerName),
+    });
   }
 
   publishEmail(clientId: string, phone: string, row: EmailRow): void {
@@ -60,8 +63,9 @@ export class BackofficeService {
     }
     const [leadRows, emailRows, turnRows] = await Promise.all([
       this.db
-        .select()
+        .select({ lead: leads, ownerName: teamMembers.name, ownerEmail: teamMembers.email })
         .from(leads)
+        .leftJoin(teamMembers, eq(teamMembers.id, leads.ownerMemberId))
         .where(eq(leads.conversationId, conversation.id))
         .orderBy(asc(leads.createdAt)),
       this.db
@@ -78,7 +82,7 @@ export class BackofficeService {
     return {
       type: 'snapshot',
       conversationStatus: conversation.status,
-      leads: leadRows.map((r) => toBackofficeLead(client, r)),
+      leads: leadRows.map((r) => toBackofficeLead(client, r.lead, r.ownerName ?? r.ownerEmail)),
       emails: emailRows.map(toBackofficeEmail),
       turns: turnRows.map(toBackofficeTurn),
     };
@@ -89,7 +93,11 @@ export class BackofficeService {
   }
 }
 
-export function toBackofficeLead(client: ClientConfig, row: LeadRow): BackofficeLead {
+export function toBackofficeLead(
+  client: ClientConfig,
+  row: LeadRow,
+  ownerName?: string | null,
+): BackofficeLead {
   return {
     id: row.id,
     createdAt: row.createdAt.toISOString(),
@@ -97,6 +105,8 @@ export function toBackofficeLead(client: ClientConfig, row: LeadRow): Backoffice
     branchId: row.branchId,
     branchName: client.branches.find((b) => b.id === row.branchId)?.name ?? null,
     status: row.status,
+    ownerId: row.ownerMemberId,
+    ownerName: ownerName ?? null,
     fields: row.fields as Record<string, unknown>,
   };
 }

@@ -9,6 +9,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/.angular/**',
       'apps/simulator/**',
+      'apps/admin/**',
       'apps/api/drizzle/**',
     ],
   },

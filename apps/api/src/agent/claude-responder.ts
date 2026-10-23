@@ -23,9 +23,12 @@ import { buildSystemPrompt, turnContext } from './prompt.js';
 import { ToolError, type AgentTool, type ToolContext } from './tool.js';
 import { offerChoices } from './tools/offer-choices.js';
 import { handoffToHuman } from './tools/handoff-to-human.js';
+import { requestDataDeletion } from './tools/request-data-deletion.js';
+import { noteProfile } from './tools/note-profile.js';
+import { customerTurnContext } from '../customers/context.js';
 
 /** Tools every client gets. The rest are enabled per client in config `tools:`. */
-const coreTools: AgentTool[] = [offerChoices, handoffToHuman];
+const coreTools: AgentTool[] = [offerChoices, handoffToHuman, requestDataDeletion];
 
 /** Asking for a person always reaches one, even if the model forgets to call handoff_to_human. */
 const askForHuman =
@@ -53,7 +56,7 @@ const LOG_OUTPUT_MAX = 3000;
  * with this turn's facts (time, open branches, first contact).
  */
 export class ClaudeResponder implements Responder {
-  private readonly systemPrompts = new Map<string, string>();
+  private readonly systemPrompts = new Map<string, { config: ClientConfig; prompt: string }>();
   private readonly leads: LeadSinks;
   private readonly mailer: Mailer;
 
@@ -171,12 +174,20 @@ export class ClaudeResponder implements Responder {
     }
   }
 
+  /** Drops a client's cached system prompt; the next turn builds it from the current config. */
+  invalidate(clientId: string): void {
+    this.systemPrompts.delete(clientId);
+  }
+
+  /**
+   * Built once per client and config: a settings change (WA-022) hands in a new config object,
+   * which rebuilds the prompt even if `invalidate` was not called.
+   */
   private systemPrompt(client: ClientConfig): string {
-    let prompt = this.systemPrompts.get(client.id);
-    if (!prompt) {
-      prompt = buildSystemPrompt(client);
-      this.systemPrompts.set(client.id, prompt);
-    }
+    const cached = this.systemPrompts.get(client.id);
+    if (cached?.config === client) return cached.prompt;
+    const prompt = buildSystemPrompt(client);
+    this.systemPrompts.set(client.id, { config: client, prompt });
     return prompt;
   }
 
@@ -188,7 +199,9 @@ export class ClaudeResponder implements Responder {
       if (!tool) throw new Error(`Client "${client.id}" enables unknown tool "${name}"`);
       return tool;
     });
-    return [...coreTools, ...enabled].sort((a, b) => a.name.localeCompare(b.name));
+    // WA-027: note_profile for clients with profiling on (fixed per client, so the cache holds).
+    const core = client.profiling.enabled ? [...coreTools, noteProfile] : coreTools;
+    return [...core, ...enabled].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private wrap(tool: AgentTool, ctx: ToolContext, calls: ToolCallRecord[]) {
@@ -293,6 +306,7 @@ export class ClaudeResponder implements Responder {
           contact,
           now,
           firstContact: !earlier,
+          customer: await customerTurnContext(this.deps.db, client, contact),
         }),
       },
     ];

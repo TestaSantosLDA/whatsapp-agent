@@ -28,7 +28,36 @@ export interface Grade {
 /** Turns a transcript into the plain text the grader reads. */
 export function renderTranscript(t: Transcript): string {
   const lines: string[] = [];
-  t.turns.forEach((turn, i) => {
+  (t.earlier ?? []).forEach((turns, n) => {
+    lines.push(`=== Earlier conversation ${n + 1} with the same customer`);
+    lines.push(...renderTurns(turns));
+  });
+  if (t.earlier?.length) lines.push('=== The conversation to grade (a new one)');
+  lines.push(...renderTurns(t.turns));
+  lines.push('--- End');
+  lines.push(`Conversation status: ${t.status} (human = handed to a colleague)`);
+  lines.push(
+    `Leads stored: ${t.leads.map((l) => `${l.type} → ${l.branchId ?? '?'}`).join(', ') || 'none'}`,
+  );
+  lines.push(`Emails to the company: ${t.emails.map((e) => e.kind).join(', ') || 'none'}`);
+  if (t.profile) {
+    lines.push(
+      `Customer profile at the end: ${
+        t.profile
+          .map(
+            (p) =>
+              `${p.field} = ${JSON.stringify(p.value)} (${p.source}${p.evidence ? `, from "${p.evidence}"` : ''})`,
+          )
+          .join('; ') || 'empty'
+      }`,
+    );
+  }
+  return lines.join('\n');
+}
+
+function renderTurns(turns: Transcript['turns']): string[] {
+  const lines: string[] = [];
+  turns.forEach((turn, i) => {
     lines.push(`--- Turn ${i + 1}`);
     lines.push(`CUSTOMER: ${turn.customer}`);
     for (const call of turn.toolCalls) {
@@ -40,13 +69,7 @@ export function renderTranscript(t: Transcript): string {
     if (turn.replies.length === 0) lines.push('AGENT: (no reply)');
     for (const reply of turn.replies) lines.push(`AGENT: ${reply}`);
   });
-  lines.push('--- End');
-  lines.push(`Conversation status: ${t.status} (human = handed to a colleague)`);
-  lines.push(
-    `Leads stored: ${t.leads.map((l) => `${l.type} → ${l.branchId ?? '?'}`).join(', ') || 'none'}`,
-  );
-  lines.push(`Emails to the company: ${t.emails.map((e) => e.kind).join(', ') || 'none'}`);
-  return lines.join('\n');
+  return lines;
 }
 
 function graderSystem(client: ClientConfig): string {

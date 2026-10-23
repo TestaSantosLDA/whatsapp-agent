@@ -1,0 +1,59 @@
+# WA-027: a returning professional served from their profile. Each case plays an earlier
+# conversation first (the agent should note the preferences with note_profile), closes it, then
+# a new conversation where the replies should be shorter and reuse the usual products.
+- id: profile-contractor-returns-pt
+  title: Empreiteiro habitual volta e quer só o preço
+  use_case: profile
+  language: pt-PT
+  now: '2026-10-22T09:15:00+01:00'
+  customer: { name: Rui Tavares }
+  earlier:
+    - now: '2026-10-15T09:30:00+01:00'
+      turns:
+        - Bom dia. Sou empreiteiro e faço decks para moradias. Quanto está o deck de pinho tratado autoclave de 27 mm?
+        - Não preciso de explicações, só preciso do preço. Levo normalmente 60 m² de cada vez, com entrega na obra.
+  turns:
+    - Bom dia, outra vez o deck de pinho. Quanto está agora?
+  checks:
+    tools_called: [search_products]
+    profile: [detail_level, usual_products]
+    shorter_than_earlier: true
+    must_include: ['/18,90|18\.90/']
+    must_not_include: ['banheiro']
+    lead: none
+  rubric: >-
+    In the earlier conversation the contractor said he only wants the price, buys about 60 m² of
+    treated pine deck (27 mm) at a time and wants delivery on site; the profile at the end must
+    show those preferences with his own words as the reason (detail level short, the pine deck as
+    a usual product, delivery on site). In the graded conversation the reply is short: the price
+    (18,90 € with VAT, as the tool returned it) first, no background explanation, at most one
+    question, and it may offer the usual 60 m² or delivery on site as a suggestion to confirm. It
+    never mentions keeping a profile or "noting" anything, and stores nothing about him beyond
+    those service preferences. European Portuguese.
+
+- id: profile-carpenter-same-as-last-time-en
+  title: Carpenter asks for the same as last time
+  use_case: profile
+  language: en
+  now: '2026-10-22T14:00:00+01:00'
+  customer: { name: Mark Davies }
+  earlier:
+    - now: '2026-10-14T11:00:00+01:00'
+      turns:
+        - Hi, I'm a carpenter. I usually buy the Osmo deck oil 007 teak, the 2.5 L tin, about 4 tins per job. Short answers please, I know the product.
+        - What's the price of the 2.5 L tin?
+  turns:
+    - Hi again, the usual oil please. Price?
+  checks:
+    tools_called: [search_products]
+    profile: [detail_level, usual_products]
+    shorter_than_earlier: true
+    must_include: ['/76[,.]95/']
+    lead: none
+  rubric: >-
+    In the earlier conversation the carpenter asked for short answers and said he usually buys
+    the Osmo Deck Oil 007 Teak 2,5 L, about 4 tins per job; the profile at the end must show
+    detail level short and that oil as a usual product, with his words as the reason. In the
+    graded conversation the agent recognises "the usual oil" as that product, gives the price
+    (76,95 € with VAT, as the tool returned it) in one or two short sentences and may suggest the
+    usual 4 tins for him to confirm. It never says it keeps a profile. English throughout.

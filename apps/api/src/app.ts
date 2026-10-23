@@ -24,15 +24,41 @@ import {
 } from './jobs/process-conversation.js';
 import { parseServiceAccount, GoogleSheetsLeadSink } from './leads/sheets.js';
 import { LeadSinks, type LeadSink } from './leads/sink.js';
-import { mailerFromEnv } from './mail/mailer.js';
+import { mailerFromEnv, type Mailer } from './mail/mailer.js';
 import { CloudTasksQueue } from './queue/cloud-tasks.js';
 import { InProcessQueue, type Job, type Queue } from './queue/queue.js';
 import { jobsRoutes } from './routes/jobs.js';
 import { simulatorRoutes } from './routes/simulator.js';
-import { serveSimulator } from './routes/spa.js';
+import { ADMIN_BASE, serveAdmin, serveSimulator } from './routes/spa.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { BackofficeService } from './services/backoffice.js';
 import { MessageService } from './services/messages.js';
+import type { JWTVerifyGetKey } from 'jose';
+import { SupabaseJwtVerifier } from './admin/auth.js';
+import { adminApiRoutes, adminConfig, devLoginSecret } from './admin/router.js';
+import { SettingsService } from './admin/settings/service.js';
+import { SupabaseAdminApi, type SupabaseAdmin } from './admin/supabase-admin.js';
+import { TeamService } from './admin/team/service.js';
+import { LeadsService } from './admin/leads/service.js';
+import { LeadReminders } from './leads/reminders.js';
+import { KnowledgeService } from './admin/knowledge/service.js';
+import { DocumentExtractor, type ParseClient } from './knowledge/extractor.js';
+import { fileStoreFromEnv, type FileStore } from './knowledge/file-store.js';
+import {
+  onProcessDocumentFailure,
+  PROCESS_DOCUMENT,
+  processDocument,
+  type ProcessDocumentPayload,
+} from './knowledge/process.js';
+import { PrivacyService } from './privacy/service.js';
+import { InboxService } from './admin/inbox/service.js';
+import { QuotesService } from './admin/quotes/service.js';
+import { PdfLibQuoteRenderer, type QuotePdfRenderer } from './admin/quotes/pdf.js';
+import { publicQuoteRoutes } from './admin/quotes/routes.js';
+import { InsightsService } from './admin/overview/service.js';
+import { WeeklyInsights } from './admin/overview/weekly.js';
+import { customerSubject } from './customers/records.js';
+import { CustomersService } from './admin/customers/service.js';
 
 export interface AppDeps {
   env: Env;
@@ -46,6 +72,21 @@ export interface AppDeps {
   logRequests?: boolean;
   /** Serve the built simulator from SIMULATOR_DIST_DIR at `/`. Default true; tests turn it off. */
   serveSimulator?: boolean;
+  /** Serve the built dashboard from ADMIN_DIST_DIR at `/admin`. Default: as serveSimulator. */
+  serveAdmin?: boolean;
+  /** Tests: Supabase's Admin API (invites). Default: from SUPABASE_SERVICE_ROLE_KEY, if set. */
+  supabaseAdmin?: SupabaseAdmin;
+  /** Tests: the signing keys instead of `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`. */
+  jwks?: JWTVerifyGetKey;
+  /** Tests: where knowledge files go (WA-026). Default: from FILE_STORE. */
+  files?: FileStore;
+  /**
+   * Tests: the client that reads uploaded documents (a fake). Default: Anthropic when
+   * ANTHROPIC_API_KEY is set; without it spreadsheets and Word files are search-only.
+   */
+  documentReader?: ParseClient;
+  /** Tests: renders quote PDFs (WA-025). Default: pdf-lib, fetching the client's logo. */
+  quotePdf?: QuotePdfRenderer;
 }
 
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
@@ -67,17 +108,121 @@ export function createApp(deps: AppDeps) {
   const backoffice = new BackofficeService(deps.db, new EventBus<BackofficeEvent>());
   const jobDeps = { db: deps.db, clients: deps.clients, messages, backoffice };
   const onFailure = onProcessConversationFailure(jobDeps);
+  const onDocumentFailure = onProcessDocumentFailure(deps.db);
   const onJobFailure = async (job: Job, error: unknown) => {
     if (job.name === PROCESS_CONVERSATION)
       await onFailure(job.payload as ProcessConversationPayload, error);
+    else if (job.name === PROCESS_DOCUMENT)
+      await onDocumentFailure(job.payload as ProcessDocumentPayload, error);
     else console.error(`[queue] job ${job.name} failed`, error);
   };
   const queue = deps.queue ?? queueFromEnv(deps.env, onJobFailure);
-  const responder = deps.responder ?? defaultResponder(deps, backoffice);
+  // One mailer for the agent's emails and the inbox alerts (WA-023).
+  const mailer = mailerFromEnv({
+    clients: deps.clients.all(),
+    db: deps.db,
+    backoffice,
+    resendApiKey: deps.env.RESEND_API_KEY,
+    redirectTo: deps.env.MAIL_REDIRECT_TO,
+  });
+  const responder = deps.responder ?? defaultResponder(deps, backoffice, mailer);
   queue.register(
     PROCESS_CONVERSATION,
     processConversation({ ...jobDeps, responder, debounceMs: deps.debounceMs }),
   );
+  // Knowledge base (WA-026): uploaded files are read in the background.
+  const files = deps.files ?? fileStoreFromEnv(deps.env);
+  const documentReader =
+    deps.documentReader ??
+    (deps.env.ANTHROPIC_API_KEY
+      ? new Anthropic({ apiKey: deps.env.ANTHROPIC_API_KEY })
+      : undefined);
+  queue.register(
+    PROCESS_DOCUMENT,
+    processDocument({
+      db: deps.db,
+      clients: deps.clients,
+      files,
+      extractor: documentReader
+        ? new DocumentExtractor({ anthropic: documentReader, model: deps.env.KNOWLEDGE_MODEL })
+        : undefined,
+    }),
+  );
+  const knowledge = new KnowledgeService({ db: deps.db, files, queue });
+  // Settings changed in the dashboard: the agent rebuilds its cached system prompt.
+  deps.clients.onChange((clientId) => responder.invalidate?.(clientId));
+
+  // Team dashboard (WA-022).
+  const devSecret = devLoginSecret(deps.env);
+  if (devSecret) console.warn('[admin] ADMIN_DEV_LOGIN is on: anyone here can sign in as anyone.');
+  const verifier = new SupabaseJwtVerifier({
+    supabaseUrl: deps.env.SUPABASE_URL,
+    jwtSecret: deps.env.SUPABASE_JWT_SECRET,
+    jwks: deps.jwks,
+    devSecret,
+  });
+  const supabaseAdmin =
+    deps.supabaseAdmin ??
+    (deps.env.SUPABASE_URL && deps.env.SUPABASE_SERVICE_ROLE_KEY
+      ? new SupabaseAdminApi({
+          supabaseUrl: deps.env.SUPABASE_URL,
+          serviceRoleKey: deps.env.SUPABASE_SERVICE_ROLE_KEY,
+        })
+      : undefined);
+  const dashboardUrl = `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}/`;
+  const team = new TeamService({
+    db: deps.db,
+    clients: deps.clients,
+    supabaseAdmin,
+    dashboardUrl,
+  });
+  const settings = new SettingsService({ db: deps.db, clients: deps.clients });
+  // Leads pipeline (WA-024).
+  const leads = new LeadsService({ db: deps.db, team, backoffice });
+  const leadReminders = new LeadReminders({
+    db: deps.db,
+    clients: deps.clients,
+    mailer,
+    dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}`,
+  });
+  // Quote drafts (WA-025): sent to the customer by email or as a WhatsApp document.
+  const quotes = new QuotesService({
+    db: deps.db,
+    leads,
+    messages,
+    mailer: mailerFromEnv({
+      db: deps.db,
+      backoffice,
+      resendApiKey: deps.env.RESEND_API_KEY,
+      redirectTo: deps.env.MAIL_REDIRECT_TO,
+    }),
+    pdf: deps.quotePdf ?? new PdfLibQuoteRenderer(),
+    publicBaseUrl: deps.env.PUBLIC_BASE_URL,
+  });
+  // Privacy tools (WA-028). Features with customer data add handlers in privacy/handlers.ts.
+  // WA-027: a customer is every number of their record.
+  const privacy = new PrivacyService({ db: deps.db, messages, subjects: customerSubject });
+  const customers = new CustomersService({ db: deps.db, privacy });
+  const inbox = new InboxService({
+    db: deps.db,
+    clients: deps.clients,
+    messages,
+    backoffice,
+    chatBus: bus,
+    team,
+    mailer,
+    dashboardUrl,
+  });
+  inbox.start();
+  // Overview, "couldn't answer" and the Monday email (WA-029).
+  const insights = new InsightsService({ db: deps.db });
+  const weeklyInsights = new WeeklyInsights({
+    db: deps.db,
+    clients: deps.clients,
+    insights,
+    mailer,
+    dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}`,
+  });
 
   const app = new Hono();
   if (deps.logRequests)
@@ -91,6 +236,7 @@ export function createApp(deps: AppDeps) {
   app.get('/health', (c) => c.json({ ok: true }));
   app.get('/healthz', (c) => c.json({ ok: true }));
 
+  app.route('/static/quotes', publicQuoteRoutes(quotes));
   app.get('/static/:file', async (c) => {
     const file = basename(c.req.param('file'));
     const type = contentTypes[extname(file)];
@@ -109,10 +255,13 @@ export function createApp(deps: AppDeps) {
       env: deps.env,
       db: deps.db,
       clients: deps.clients,
+      privacy,
       runJob:
         queue instanceof CloudTasksQueue
           ? (name, payload, retryCount) => queue.run(name, payload, retryCount)
           : undefined,
+      leadReminders,
+      weeklyInsights,
     }),
   );
 
@@ -140,10 +289,57 @@ export function createApp(deps: AppDeps) {
     }),
   );
 
-  // Last, so every API route wins over the simulator's index.html fallback.
+  app.get(`${ADMIN_BASE}/config`, (c) => {
+    c.header('cache-control', 'no-store');
+    return c.json(adminConfig(deps.env, devSecret));
+  });
+  app.route(
+    '/api/admin',
+    adminApiRoutes({
+      env: deps.env,
+      db: deps.db,
+      clients: deps.clients,
+      messages,
+      backoffice,
+      verifier,
+      team,
+      settings,
+      leads,
+      quotes,
+      knowledge,
+      privacy,
+      inbox,
+      insights,
+      customers,
+      devSecret,
+    }),
+  );
+
+  // Last, so every API route wins over the apps' index.html fallbacks.
+  if (deps.serveAdmin ?? deps.serveSimulator ?? true) serveAdmin(app, deps.env.ADMIN_DIST_DIR);
   if (deps.serveSimulator ?? true) serveSimulator(app, deps.env.SIMULATOR_DIST_DIR);
 
-  return { app, queue, bus, messages, backoffice };
+  return {
+    app,
+    queue,
+    bus,
+    messages,
+    backoffice,
+    team,
+    settings,
+    verifier,
+    leads,
+    leadReminders,
+    quotes,
+    knowledge,
+    files,
+    privacy,
+    inbox,
+    mailer,
+    insights,
+    weeklyInsights,
+    customers,
+  };
 }
 
 function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise<void>): Queue {
@@ -162,12 +358,15 @@ function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise
   return new InProcessQueue(onFailure);
 }
 
-/** The simulator stream carries the access code and the customer phone in its query string. */
+/**
+ * The simulator stream carries the access code and the customer phone in its query string, and
+ * dashboard streams the access token.
+ */
 export function redactQuery(line: string): string {
-  return line.replace(/([?&](?:code|phone)=)[^&\s]*/g, '$1***');
+  return line.replace(/([?&](?:code|phone|access_token)=)[^&\s]*/g, '$1***');
 }
 
-function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Responder {
+function defaultResponder(deps: AppDeps, backoffice: BackofficeService, mailer: Mailer): Responder {
   if (!deps.env.ANTHROPIC_API_KEY) {
     console.warn(
       '[agent] ANTHROPIC_API_KEY is not set: the echo test bot answers instead of Claude.',
@@ -184,12 +383,6 @@ function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Respond
     tools: agentTools,
     backoffice,
     leads: new LeadSinks({ db: deps.db, backoffice, sinks }),
-    mailer: mailerFromEnv({
-      clients: deps.clients.all(),
-      db: deps.db,
-      backoffice,
-      resendApiKey: deps.env.RESEND_API_KEY,
-      redirectTo: deps.env.MAIL_REDIRECT_TO,
-    }),
+    mailer,
   });
 }

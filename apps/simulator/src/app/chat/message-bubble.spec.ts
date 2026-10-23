@@ -97,6 +97,27 @@ describe('MessageBubble', () => {
     btn.click();
     expect(spy.mock.calls[0][0].action.button).toBe('Ver lojas');
   });
+
+  it('renders a document (a quote PDF) with its file name, link and caption', () => {
+    const { el } = render({
+      id: 'out-3',
+      direction: 'outbound',
+      timestamp: '1792570000',
+      payload: {
+        ...base,
+        type: 'document',
+        document: {
+          link: 'http://localhost:3000/static/quotes/tok/Orcamento-JUL-2026-0042.pdf',
+          filename: 'Orcamento-JUL-2026-0042.pdf',
+          caption: 'Orçamento JUL-2026-0042: 1 940,76 € com IVA',
+        },
+      },
+    });
+    const link = el.querySelector('.bubble__doc') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/static/quotes/tok/Orcamento-JUL-2026-0042.pdf');
+    expect(link.textContent).toContain('Orcamento-JUL-2026-0042.pdf');
+    expect(el.querySelector('.bubble__text')?.textContent).toContain('1 940,76 €');
+  });
 });
 
 describe('localizeStaticUrl', () => {

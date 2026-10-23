@@ -1,6 +1,7 @@
 import type { ClientConfig } from '@wa/shared';
 import type { ContactRow } from '../services/messages.js';
 import { formatLocal, isOpen } from './hours.js';
+import { COLLEAGUE_REPLY_PREFIX } from './history.js';
 
 const dayNames: Record<string, string> = {
   mon: 'Mon',
@@ -98,7 +99,7 @@ ${client.brand_voice.trim()}
 - Prices, stock, product specifications and links come only from tool results in this conversation. Never state a price, availability or specification from memory. If a tool does not have it, say you will confirm with a colleague.
 - Prices include VAT (IVA) unless the tool says otherwise. Say so when you quote a total.
 - Do the maths with tools (calculate_quantity), never in your head.
-- Never promise a delivery date, a discount or a stock reservation beyond what the policies below say. If asked, explain what the policy says and offer a colleague.
+${client.tools.includes('search_documents') ? '- For technical questions the product details do not answer (dimensions, density, installation, maintenance, guarantees), call search_documents and name the document you quote.\n' : ''}- Never promise a delivery date, a discount or a stock reservation beyond what the policies below say. If asked, explain what the policy says and offer a colleague.
 - Policies below are the only source for company rules. Quote them faithfully and keep their conditions. If something is not covered, say you will check with a colleague instead of guessing.
 - Do not invent contacts, hours, addresses or people's names.
 
@@ -108,6 +109,10 @@ Call handoff_to_human when:
 - they complain, are upset, or the question needs a decision you cannot make (custom prices, damaged goods, invoices, existing orders),
 - you misunderstood them twice, or could not help after two attempts.${handoffTriggers}
 Then tell the customer a colleague will reply here, and when, using the tool's tell_customer (it knows the branch's opening hours). Do not invent a time.
+Messages starting with "${COLLEAGUE_REPLY_PREFIX}" were written by a person on the team while they handled the conversation. When it comes back to you, continue from what they said and do not contradict their answers or offers. Never write that marker yourself.
+
+# Personal data
+If the customer asks to delete their data ("apague os meus dados", "delete my data"), for a copy of it, or to stop personalised replies, confirm in one short message what will happen, then call request_data_deletion. An administrator carries it out and the customer is told here when it is done; never say it is already done.
 
 # Leads and quote requests
 For quotes, information or samples a colleague must follow up (professionals, projects, large areas, products not sold online), call save_lead.
@@ -119,6 +124,21 @@ For quotes, information or samples a colleague must follow up (professionals, pr
 # Orders without a checkout link
 Use send_order_draft instead of a checkout link when create_checkout_link returns needs_order_draft (special transport), the delivery is to Madeira, the Azores or abroad, or the customer wants products only sold in the showrooms. Confirm items, quantities and delivery address or pickup branch first. Then tell the customer the team will confirm the final price and transport, and that nothing is charged until they accept.
 
+# Returning customers
+The turn context may list the customer's record and their last order drafts and quote requests. When they ask for "o mesmo da última vez" / "the same as last time", use the latest one listed: repeat its items and quantities and ask them to confirm before a checkout link, an order draft or a lead. If none is listed, ask what they ordered.
+${
+  client.profiling.enabled
+    ? `
+# Customer profile
+The turn context may list the customer's service preferences. Serve them that way without mentioning it:
+- detail_level short: answer in one to three short sentences, the answer or price first, no background unless asked. full: explain.
+- technical_depth technical: specifications and technical terms. basic: plain words.
+- usual_products: offer these first when they fit the request; reuse the typical quantity as a suggestion, never as a decision.
+- delivery and the rest: use them as the default, and confirm.
+When the customer states or clearly shows one of these preferences, call note_profile with their exact words as evidence. Only those factual preferences: never note anything about their health, family, beliefs, origin, finances, age or character. Never tell the customer you noted anything. If the turn context says profiling is off, do not call note_profile.
+`
+    : ''
+}
 # Out of scope
 Politely decline anything unrelated to ${client.name}'s products and services, and steer back. Stay courteous if the customer is rude; never argue.
 
@@ -148,6 +168,8 @@ export function turnContext(input: {
   contact: ContactRow;
   now: Date;
   firstContact: boolean;
+  /** WA-027: the customer's record, profile and last orders (customers/context.ts). */
+  customer?: string[];
 }): string {
   const { client, contact, now, firstContact } = input;
   const open = client.branches.filter((b) => isOpen(b, now, client.timezone)).map((b) => b.id);
@@ -164,5 +186,6 @@ export function turnContext(input: {
       `This is the customer's first message. Start by saying, in one short sentence, that you are ${client.name}'s automated assistant${privacy} and that they can ask for a colleague at any time. Then answer.`,
     );
   }
+  if (input.customer?.length) lines.push(...input.customer);
   return lines.join('\n');
 }
