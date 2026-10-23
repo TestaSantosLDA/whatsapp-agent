@@ -47,10 +47,18 @@ export const conversations = pgTable(
       .notNull()
       .default('bot'),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
+    // WA-023 (inbox): the branch that follows the conversation up (from its handoff or leads),
+    // the team member it is assigned to, and when the team last read it (unread badges).
+    branchId: text('branch_id'),
+    assignedMemberId: uuid('assigned_member_id').references(() => teamMembers.id, {
+      onDelete: 'set null',
+    }),
+    teamReadAt: timestamp('team_read_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [
     index('conversations_contact').on(t.contactId),
+    index('conversations_client_activity').on(t.clientId, t.lastActivityAt), // WA-023
     uniqueIndex('conversations_one_open_per_contact')
       .on(t.contactId)
       .where(sql`${t.status} <> 'closed'`),
@@ -75,6 +83,10 @@ export const messages = pgTable(
     payload: jsonb('payload').notNull(),
     status: text('status').notNull(),
     processedAt: timestamp('processed_at', { withTimezone: true }),
+    /** WA-023: the team member who sent this reply from the inbox; empty for the agent's. */
+    sentByMemberId: uuid('sent_by_member_id').references(() => teamMembers.id, {
+      onDelete: 'set null',
+    }),
     createdAt: createdAt(),
   },
   (t) => [

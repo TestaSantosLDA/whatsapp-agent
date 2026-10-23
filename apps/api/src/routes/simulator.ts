@@ -31,9 +31,9 @@ const sendBodySchema = z.union([
 
 /**
  * Writes bus events to an SSE stream in order, with a heartbeat so proxies keep the connection
- * open. `run` returns when the client goes away.
+ * open. `run` returns when the client goes away. Also used by the dashboard inbox (WA-023).
  */
-class SseQueue<E> {
+export class SseQueue<E> {
   private readonly queue: E[] = [];
   private wake: (() => void) | undefined;
 

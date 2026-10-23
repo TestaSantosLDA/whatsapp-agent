@@ -76,7 +76,17 @@ export async function testApp(
     supabaseAdmin: opts.supabaseAdmin,
     jwks: opts.jwks,
   });
-  return { ...built, env, clients, db: handle.db, close: () => handle.close() };
+  return {
+    ...built,
+    env,
+    clients,
+    db: handle.db,
+    close: async () => {
+      // Let the inbox finish reacting to the last events before the database goes away.
+      await built.inbox.flush();
+      await handle.close();
+    },
+  };
 }
 
 export function postSimWebhook(

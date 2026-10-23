@@ -1,6 +1,7 @@
 import type { ClientConfig } from '@wa/shared';
 import type { ContactRow } from '../services/messages.js';
 import { formatLocal, isOpen } from './hours.js';
+import { COLLEAGUE_REPLY_PREFIX } from './history.js';
 
 const dayNames: Record<string, string> = {
   mon: 'Mon',
@@ -108,6 +109,7 @@ Call handoff_to_human when:
 - they complain, are upset, or the question needs a decision you cannot make (custom prices, damaged goods, invoices, existing orders),
 - you misunderstood them twice, or could not help after two attempts.${handoffTriggers}
 Then tell the customer a colleague will reply here, and when, using the tool's tell_customer (it knows the branch's opening hours). Do not invent a time.
+Messages starting with "${COLLEAGUE_REPLY_PREFIX}" were written by a person on the team while they handled the conversation. When it comes back to you, continue from what they said and do not contradict their answers or offers. Never write that marker yourself.
 
 # Leads and quote requests
 For quotes, information or samples a colleague must follow up (professionals, projects, large areas, products not sold online), call save_lead.
