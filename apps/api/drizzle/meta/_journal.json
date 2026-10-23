@@ -15,6 +15,13 @@
       "when": 1792631717921,
       "tag": "0001_outbox_conversation",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792715189709,
+      "tag": "0002_team_and_settings",
+      "breakpoints": true
     }
   ]
 }

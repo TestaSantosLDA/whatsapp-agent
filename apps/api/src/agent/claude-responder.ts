@@ -53,7 +53,7 @@ const LOG_OUTPUT_MAX = 3000;
  * with this turn's facts (time, open branches, first contact).
  */
 export class ClaudeResponder implements Responder {
-  private readonly systemPrompts = new Map<string, string>();
+  private readonly systemPrompts = new Map<string, { config: ClientConfig; prompt: string }>();
   private readonly leads: LeadSinks;
   private readonly mailer: Mailer;
 
@@ -171,12 +171,20 @@ export class ClaudeResponder implements Responder {
     }
   }
 
+  /** Drops a client's cached system prompt; the next turn builds it from the current config. */
+  invalidate(clientId: string): void {
+    this.systemPrompts.delete(clientId);
+  }
+
+  /**
+   * Built once per client and config: a settings change (WA-022) hands in a new config object,
+   * which rebuilds the prompt even if `invalidate` was not called.
+   */
   private systemPrompt(client: ClientConfig): string {
-    let prompt = this.systemPrompts.get(client.id);
-    if (!prompt) {
-      prompt = buildSystemPrompt(client);
-      this.systemPrompts.set(client.id, prompt);
-    }
+    const cached = this.systemPrompts.get(client.id);
+    if (cached?.config === client) return cached.prompt;
+    const prompt = buildSystemPrompt(client);
+    this.systemPrompts.set(client.id, { config: client, prompt });
     return prompt;
   }
 

@@ -45,7 +45,16 @@ export async function testApp(
   opts: {
     clients?: ClientConfig[];
     env?: Record<string, string>;
-  } & Pick<AppDeps, 'responder' | 'queue' | 'debounceMs' | 'serveSimulator'> = {},
+  } & Pick<
+    AppDeps,
+    | 'responder'
+    | 'queue'
+    | 'debounceMs'
+    | 'serveSimulator'
+    | 'serveAdmin'
+    | 'supabaseAdmin'
+    | 'jwks'
+  > = {},
 ) {
   const env = loadEnv({
     SIMULATOR_WEBHOOK_SECRET: SECRET,
@@ -63,8 +72,11 @@ export async function testApp(
     queue: opts.queue,
     debounceMs: opts.debounceMs ?? 0,
     serveSimulator: opts.serveSimulator ?? false,
+    serveAdmin: opts.serveAdmin ?? false,
+    supabaseAdmin: opts.supabaseAdmin,
+    jwks: opts.jwks,
   });
-  return { ...built, env, db: handle.db, close: () => handle.close() };
+  return { ...built, env, clients, db: handle.db, close: () => handle.close() };
 }
 
 export function postSimWebhook(

@@ -30,6 +30,8 @@ export interface TurnInput {
 /** Decides what to answer. The echo responder now, the Claude agent from WA-009. */
 export interface Responder {
   respond(input: TurnInput): Promise<OutboundMessage[]>;
+  /** Forget anything cached for a client: its settings changed (WA-022). */
+  invalidate?(clientId: string): void;
 }
 
 /**

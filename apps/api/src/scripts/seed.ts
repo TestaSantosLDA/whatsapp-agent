@@ -1,4 +1,7 @@
-/** Seeds a short demo conversation for every simulator client. Safe to run more than once. */
+/**
+ * Seeds a short demo conversation for every simulator client, and the demo team for the dashboard
+ * (WA-022: one admin and one salesperson per branch). Safe to run more than once.
+ */
 import { randomUUID } from 'node:crypto';
 import { loadClients } from '../clients/registry.js';
 import { openDb } from '../db/index.js';
@@ -7,6 +10,8 @@ import { loadDotEnv, loadEnv } from '../env.js';
 import { MessageService } from '../services/messages.js';
 import { EventBus } from '../bus.js';
 import { SimulatorChannel } from '../channels/simulator.js';
+import { demoTeam } from '../admin/team/seed.js';
+import { TeamService } from '../admin/team/service.js';
 
 loadDotEnv();
 const env = loadEnv({ SIMULATOR_WEBHOOK_SECRET: 'not-needed-for-seed', ...process.env });
@@ -19,8 +24,15 @@ const service = new MessageService(
   new Map([['simulator', new SimulatorChannel(bus)]]),
 );
 
+const registry = loadClients(env.CLIENTS_DIR);
+const team = new TeamService({ db: handle.db, clients: registry, dashboardUrl: '' });
+for (const client of registry.all()) {
+  const members = await team.ensure(client.id, demoTeam(client));
+  console.log(`Team for ${client.id}: ${members.map((m) => `${m.email} (${m.role})`).join(', ')}.`);
+}
+
 const phone = '351910000000';
-for (const client of loadClients(env.CLIENTS_DIR).all()) {
+for (const client of registry.all()) {
   if (client.channel.type !== 'simulator') continue;
   const { messages: existing } = await service.history(client.id, phone);
   if (existing.length) continue;

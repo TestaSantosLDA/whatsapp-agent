@@ -29,10 +29,16 @@ import { CloudTasksQueue } from './queue/cloud-tasks.js';
 import { InProcessQueue, type Job, type Queue } from './queue/queue.js';
 import { jobsRoutes } from './routes/jobs.js';
 import { simulatorRoutes } from './routes/simulator.js';
-import { serveSimulator } from './routes/spa.js';
+import { ADMIN_BASE, serveAdmin, serveSimulator } from './routes/spa.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { BackofficeService } from './services/backoffice.js';
 import { MessageService } from './services/messages.js';
+import type { JWTVerifyGetKey } from 'jose';
+import { SupabaseJwtVerifier } from './admin/auth.js';
+import { adminApiRoutes, adminConfig, devLoginSecret } from './admin/router.js';
+import { SettingsService } from './admin/settings/service.js';
+import { SupabaseAdminApi, type SupabaseAdmin } from './admin/supabase-admin.js';
+import { TeamService } from './admin/team/service.js';
 
 export interface AppDeps {
   env: Env;
@@ -46,6 +52,12 @@ export interface AppDeps {
   logRequests?: boolean;
   /** Serve the built simulator from SIMULATOR_DIST_DIR at `/`. Default true; tests turn it off. */
   serveSimulator?: boolean;
+  /** Serve the built dashboard from ADMIN_DIST_DIR at `/admin`. Default: as serveSimulator. */
+  serveAdmin?: boolean;
+  /** Tests: Supabase's Admin API (invites). Default: from SUPABASE_SERVICE_ROLE_KEY, if set. */
+  supabaseAdmin?: SupabaseAdmin;
+  /** Tests: the signing keys instead of `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`. */
+  jwks?: JWTVerifyGetKey;
 }
 
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
@@ -78,6 +90,33 @@ export function createApp(deps: AppDeps) {
     PROCESS_CONVERSATION,
     processConversation({ ...jobDeps, responder, debounceMs: deps.debounceMs }),
   );
+  // Settings changed in the dashboard: the agent rebuilds its cached system prompt.
+  deps.clients.onChange((clientId) => responder.invalidate?.(clientId));
+
+  // Team dashboard (WA-022).
+  const devSecret = devLoginSecret(deps.env);
+  if (devSecret) console.warn('[admin] ADMIN_DEV_LOGIN is on: anyone here can sign in as anyone.');
+  const verifier = new SupabaseJwtVerifier({
+    supabaseUrl: deps.env.SUPABASE_URL,
+    jwtSecret: deps.env.SUPABASE_JWT_SECRET,
+    jwks: deps.jwks,
+    devSecret,
+  });
+  const supabaseAdmin =
+    deps.supabaseAdmin ??
+    (deps.env.SUPABASE_URL && deps.env.SUPABASE_SERVICE_ROLE_KEY
+      ? new SupabaseAdminApi({
+          supabaseUrl: deps.env.SUPABASE_URL,
+          serviceRoleKey: deps.env.SUPABASE_SERVICE_ROLE_KEY,
+        })
+      : undefined);
+  const team = new TeamService({
+    db: deps.db,
+    clients: deps.clients,
+    supabaseAdmin,
+    dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}/`,
+  });
+  const settings = new SettingsService({ db: deps.db, clients: deps.clients });
 
   const app = new Hono();
   if (deps.logRequests)
@@ -140,10 +179,30 @@ export function createApp(deps: AppDeps) {
     }),
   );
 
-  // Last, so every API route wins over the simulator's index.html fallback.
+  app.get(`${ADMIN_BASE}/config`, (c) => {
+    c.header('cache-control', 'no-store');
+    return c.json(adminConfig(deps.env, devSecret));
+  });
+  app.route(
+    '/api/admin',
+    adminApiRoutes({
+      env: deps.env,
+      db: deps.db,
+      clients: deps.clients,
+      messages,
+      backoffice,
+      verifier,
+      team,
+      settings,
+      devSecret,
+    }),
+  );
+
+  // Last, so every API route wins over the apps' index.html fallbacks.
+  if (deps.serveAdmin ?? deps.serveSimulator ?? true) serveAdmin(app, deps.env.ADMIN_DIST_DIR);
   if (deps.serveSimulator ?? true) serveSimulator(app, deps.env.SIMULATOR_DIST_DIR);
 
-  return { app, queue, bus, messages, backoffice };
+  return { app, queue, bus, messages, backoffice, team, settings, verifier };
 }
 
 function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise<void>): Queue {
@@ -162,9 +221,12 @@ function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise
   return new InProcessQueue(onFailure);
 }
 
-/** The simulator stream carries the access code and the customer phone in its query string. */
+/**
+ * The simulator stream carries the access code and the customer phone in its query string, and
+ * dashboard streams the access token.
+ */
 export function redactQuery(line: string): string {
-  return line.replace(/([?&](?:code|phone)=)[^&\s]*/g, '$1***');
+  return line.replace(/([?&](?:code|phone|access_token)=)[^&\s]*/g, '$1***');
 }
 
 function defaultResponder(deps: AppDeps, backoffice: BackofficeService): Responder {

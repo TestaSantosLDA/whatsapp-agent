@@ -1,30 +1,12 @@
-/* Simulator styles. Kept global (one sheet) so component style budgets stay small. */
+/*
+ * Simulator styles. Kept global (one sheet) so component style budgets stay small. The shared
+ * tokens (colours, font) come from packages/shared/styles/tokens.css, loaded first.
+ */
 :root {
-  --teal: #008069;
-  --teal-dark: #075e54;
-  --green-accent: #25a366;
   --bubble-in: #d9fdd3; /* customer (right) */
   --bubble-out: #ffffff; /* business (left) */
   --chat-bg: #efeae2;
-  --text: #111b21;
-  --muted: #667781;
   --tick-read: #53bdeb;
-  --border: #d1d7db;
-  --page: #dfe3e6;
-  --panel: #ffffff;
-  --danger: #c0392b;
-  color-scheme: light;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif,
-    'Apple Color Emoji',
-    'Segoe UI Emoji';
-  color: var(--text);
 }
 
 *,

@@ -160,3 +160,40 @@ export const outbox = pgTable('outbox', {
   error: text('error'),
   createdAt: createdAt(),
 });
+
+/**
+ * The client's team (WA-022). Keyed by the Supabase Auth user id once the person has signed in;
+ * until then (`user_id` empty) the row waits for the invited email to sign in for the first time.
+ */
+export const teamMembers = pgTable(
+  'team_members',
+  {
+    id: id(),
+    clientId: clientId(),
+    /** Supabase Auth user id (`sub` of their JWT). Empty until the first sign-in. */
+    userId: uuid('user_id'),
+    /** Lower case. */
+    email: text('email').notNull(),
+    name: text('name'),
+    role: text('role', { enum: ['admin', 'sales'] }).notNull(),
+    /** Branch ids: the branches a salesperson sees; the branches an admin is alerted for. */
+    branches: text('branches').array().notNull().default([]),
+    invitedBy: uuid('invited_by'),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('team_members_client_email').on(t.clientId, t.email),
+    uniqueIndex('team_members_client_user').on(t.clientId, t.userId),
+    index('team_members_user').on(t.userId),
+  ],
+);
+
+/** Settings the team changed in the dashboard, applied on top of clients/<id>.yaml (WA-022). */
+export const clientSettings = pgTable('client_settings', {
+  clientId: text('client_id').primaryKey(),
+  /** A ClientSettingsOverrides object (packages/shared/src/settings.ts). */
+  overrides: jsonb('overrides').notNull().default({}),
+  updatedBy: uuid('updated_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -147,6 +147,7 @@ lead:
   required_fields: [name, location, request_type]
   # TODO: confirm the response time with Jular.
   response_time: um dia útil
+  response_time_hours: 8
   # The database is always written. Add `sheets` and the block below once Jular shares a sheet
   # with the service account in GOOGLE_SERVICE_ACCOUNT_JSON.
   sinks: [db]

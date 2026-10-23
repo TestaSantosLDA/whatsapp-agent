@@ -76,16 +76,16 @@ One markdown file per ticket. A ticket is written and agreed before it is implem
 
 ### M5: Team dashboard (what the client's team uses every day)
 
-| Ticket                                            | Title                                          | Depends on             | Status |
-| ------------------------------------------------- | ---------------------------------------------- | ---------------------- | ------ |
-| [WA-022](WA-022-admin-app-and-login.md)           | Team dashboard shell, login and settings       | WA-020                 | todo   |
-| [WA-023](WA-023-inbox-and-takeover.md)            | Inbox and takeover                             | WA-022, WA-016         | todo   |
-| [WA-024](WA-024-leads-pipeline.md)                | Leads pipeline with owners and no-reply alerts | WA-022, WA-014         | todo   |
-| [WA-025](WA-025-quote-drafts.md)                  | Quote drafts from the conversation             | WA-024, WA-012, WA-026 | todo   |
-| [WA-026](WA-026-knowledge-base.md)                | Knowledge base: drop files, approve data       | WA-022                 | todo   |
-| [WA-027](WA-027-customer-records-and-profiles.md) | Customer records and profiles                  | WA-022, WA-028         | todo   |
-| [WA-028](WA-028-privacy-tools.md)                 | Privacy tools: export, clear profile, delete   | WA-022                 | todo   |
-| [WA-029](WA-029-insights.md)                      | Overview and "couldn't answer" list            | WA-022, WA-024         | todo   |
+| Ticket                                            | Title                                          | Depends on             | Status    |
+| ------------------------------------------------- | ---------------------------------------------- | ---------------------- | --------- |
+| [WA-022](WA-022-admin-app-and-login.md)           | Team dashboard shell, login and settings       | WA-020                 | in review |
+| [WA-023](WA-023-inbox-and-takeover.md)            | Inbox and takeover                             | WA-022, WA-016         | todo      |
+| [WA-024](WA-024-leads-pipeline.md)                | Leads pipeline with owners and no-reply alerts | WA-022, WA-014         | todo      |
+| [WA-025](WA-025-quote-drafts.md)                  | Quote drafts from the conversation             | WA-024, WA-012, WA-026 | todo      |
+| [WA-026](WA-026-knowledge-base.md)                | Knowledge base: drop files, approve data       | WA-022                 | todo      |
+| [WA-027](WA-027-customer-records-and-profiles.md) | Customer records and profiles                  | WA-022, WA-028         | todo      |
+| [WA-028](WA-028-privacy-tools.md)                 | Privacy tools: export, clear profile, delete   | WA-022                 | todo      |
+| [WA-029](WA-029-insights.md)                      | Overview and "couldn't answer" list            | WA-022, WA-024         | todo      |
 
 ### Backlog (after the demo)
 

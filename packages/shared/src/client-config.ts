@@ -129,7 +129,10 @@ export const clientConfigSchema = z.object({
   lead: z.object({
     request_types: z.array(z.string()).min(1),
     required_fields: z.array(leadFieldSchema).default([]),
+    /** What the customer is told, e.g. "um dia útil". Editable in the dashboard (WA-022). */
     response_time: z.string(),
+    /** The same promise in working hours, for no-reply alerts (WA-024). Empty = 8 (one day). */
+    response_time_hours: z.number().positive().max(200).optional(),
     /** Extra sinks; `db` is always written whether listed or not. */
     sinks: z.array(leadSinkSchema).default(['db']),
     /** Google Sheet the `sheets` sink appends to (service account from the environment). */

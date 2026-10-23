@@ -51,8 +51,36 @@ const envSchema = z
       .pipe(z.array(z.email()).optional()),
     /** Google service account key file contents (JSON), for the Google Sheets lead sink. */
     GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
+    /** Built team dashboard served at `/admin` (WA-022). Missing directory = not served. */
+    ADMIN_DIST_DIR: z.string().default(`${repoRoot}apps/admin/dist/admin/browser`),
+    /** Supabase project URL, e.g. https://<ref>.supabase.co. Empty = no sign-in (dev login only). */
+    SUPABASE_URL: z
+      .url()
+      .optional()
+      .transform((v) => v?.replace(/\/+$/, '')),
+    /** Public "anon" (publishable) key; the dashboard signs in with it. Not a secret. */
+    SUPABASE_ANON_KEY: z.string().optional(),
+    /** Server-only key for the Supabase Admin API (invites). Never sent to the browser. */
+    SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+    /** Legacy HS256 JWT secret, for projects not yet on asymmetric signing keys. */
+    SUPABASE_JWT_SECRET: z.string().min(32).optional(),
+    /**
+     * Local development: sign in to the dashboard as a seeded member without Supabase. Refused
+     * when NODE_ENV=production or on Cloud Run (K_SERVICE is set).
+     */
+    ADMIN_DEV_LOGIN: booleanFlag.default(false),
+    NODE_ENV: z.string().optional(),
+    /** Set by Cloud Run on every service. */
+    K_SERVICE: z.string().optional(),
   })
   .superRefine((env, ctx) => {
+    if (env.ADMIN_DEV_LOGIN && (env.NODE_ENV === 'production' || env.K_SERVICE)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ADMIN_DEV_LOGIN'],
+        message: 'must not be set in production or on Cloud Run: it lets anyone sign in',
+      });
+    }
     if (env.QUEUE !== 'cloudtasks') return;
     for (const key of [
       'GCP_PROJECT',
@@ -73,6 +101,11 @@ const envSchema = z
   });
 
 export type Env = z.infer<typeof envSchema>;
+
+/** The dev login bypass (ADMIN_DEV_LOGIN), checked again wherever it is used. */
+export function devLoginEnabled(env: Env): boolean {
+  return env.ADMIN_DEV_LOGIN && env.NODE_ENV !== 'production' && !env.K_SERVICE;
+}
 
 /** Loads the repo-root .env file into process.env, if there is one. Existing variables win. */
 export function loadDotEnv(): void {

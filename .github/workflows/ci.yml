@@ -21,7 +21,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm --filter @wa/simulator build
+      - run: pnpm --filter @wa/simulator --filter @wa/admin build
 
   # The deploy workflow only runs on main; building the image here catches a broken Dockerfile
   # in the pull request.
