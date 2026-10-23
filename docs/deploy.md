@@ -199,7 +199,7 @@ gcloud iam service-accounts add-iam-policy-binding "$RUN_SA" \
 ```sh
 gcloud tasks queues create "$QUEUE" --location="$REGION" \
   --max-concurrent-dispatches=1 --max-attempts=3 \
-  --min-backoff=2s --max-backoff=20s --max-retry-duration=10m
+  --min-backoff=2s --max-backoff=20s --max-retry-duration=600s
 ```
 
 ### 9. Workload Identity Federation (GitHub → Google, no JSON key)
