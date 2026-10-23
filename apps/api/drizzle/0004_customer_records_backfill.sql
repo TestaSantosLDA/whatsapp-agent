@@ -1,0 +1,2 @@
+-- WA-027 backfill: every contact from before customer records gets a record of its own, in one statement.
+WITH "missing" AS (SELECT "id", "client_id", "created_at", gen_random_uuid() AS "record_id" FROM "contacts" WHERE "customer_id" IS NULL), "records" AS (INSERT INTO "customers" ("id", "client_id", "created_at", "updated_at") SELECT "record_id", "client_id", "created_at", "created_at" FROM "missing") UPDATE "contacts" SET "customer_id" = "missing"."record_id" FROM "missing" WHERE "contacts"."id" = "missing"."id";

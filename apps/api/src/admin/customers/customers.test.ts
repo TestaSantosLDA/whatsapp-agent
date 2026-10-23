@@ -596,11 +596,10 @@ describe('customer records in the dashboard', () => {
     expect(await s.t.db.select().from(customers)).toEqual(before);
     expect((await s.contactOf('351966000222')).customerId).toBeNull();
 
-    // The migration's one set-based backfill gives it (and only it) a record.
+    // The custom migration's one set-based backfill gives it (and only it) a record.
     const dir = new URL('../../../drizzle/', import.meta.url);
-    const file = readdirSync(dir).find((f) => f.startsWith('0003_'))!;
-    const migration = readFileSync(new URL(file, dir), 'utf8');
-    const backfill = migration.split('--> statement-breakpoint').at(-1)!;
+    const file = readdirSync(dir).find((f) => f.endsWith('_customer_records_backfill.sql'))!;
+    const backfill = readFileSync(new URL(file, dir), 'utf8');
     expect(backfill).toContain('WA-027 backfill');
     await s.t.db.execute(sql.raw(backfill));
     const filled = await s.contactOf('351966000222');

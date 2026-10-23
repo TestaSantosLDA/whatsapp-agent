@@ -259,6 +259,4 @@ CREATE INDEX "contacts_customer" ON "contacts" USING btree ("customer_id");--> s
 CREATE INDEX "conversations_client_activity" ON "conversations" USING btree ("client_id","last_activity_at");--> statement-breakpoint
 CREATE INDEX "leads_client_created" ON "leads" USING btree ("client_id","created_at");--> statement-breakpoint
 CREATE INDEX "leads_client_status" ON "leads" USING btree ("client_id","status");--> statement-breakpoint
-CREATE INDEX "leads_owner" ON "leads" USING btree ("owner_member_id");--> statement-breakpoint
--- WA-027 backfill: every contact from before customer records gets a record of its own, in one statement.
-WITH "missing" AS (SELECT "id", "client_id", "created_at", gen_random_uuid() AS "record_id" FROM "contacts" WHERE "customer_id" IS NULL), "records" AS (INSERT INTO "customers" ("id", "client_id", "created_at", "updated_at") SELECT "record_id", "client_id", "created_at", "created_at" FROM "missing") UPDATE "contacts" SET "customer_id" = "missing"."record_id" FROM "missing" WHERE "contacts"."id" = "missing"."id";
+CREATE INDEX "leads_owner" ON "leads" USING btree ("owner_member_id");
