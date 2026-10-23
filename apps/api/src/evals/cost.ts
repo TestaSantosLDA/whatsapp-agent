@@ -56,7 +56,10 @@ export function estimateRunCost(opts: {
 }): CostEstimate {
   const { client, cases, graderModel } = opts;
   const prompt = promptTokens(client);
-  const turns = cases.reduce((n, c) => n + c.turns.length, 0);
+  const turns = cases.reduce(
+    (n, c) => n + c.turns.length + (c.earlier ?? []).reduce((m, e) => m + e.turns.length, 0),
+    0,
+  );
   const requests = turns * ESTIMATE.requestsPerTurn;
   const agentUsd = estimateCost(client.model.id, {
     // Each conversation writes the prefix once (concurrent cases may all miss the cache).

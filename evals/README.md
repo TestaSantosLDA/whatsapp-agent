@@ -31,10 +31,12 @@ Needs `ANTHROPIC_API_KEY` (environment or the repo-root `.env`); without it the 
 ```yaml
 - id: faq-pickup-en
   title: Picking up an online order
-  use_case: faq # product_advisor | calculator | faq | lead | handoff | treehouse | guardrails
+  use_case: faq # product_advisor | calculator | faq | lead | handoff | treehouse | guardrails | profile
   language: en # pt-PT | en
   now: '2026-10-21T12:00:00+01:00'
   customer: { name: Tom Evans } # optional
+  earlier: # optional (WA-027): earlier conversations of the same customer, played and closed first
+    - { now: '2026-10-14T11:00:00+01:00', turns: ['Short answers please.'] }
   turns:
     - Can I pick up my online order in a store?
     - { tap: Interior } # taps a button / list row the agent offered
@@ -47,6 +49,8 @@ Needs `ANTHROPIC_API_KEY` (environment or the repo-root `.env`); without it the 
     status: human # bot | human, at the end
     emails: [handoff] # lead | handoff | order_draft
     silent_turns: [2] # 1-based turns that must get no reply
+    profile: [detail_level] # WA-027: profile fields that hold a value at the end
+    shorter_than_earlier: true # WA-027: replies shorter on average than in `earlier`
   rubric: >-
     What the grader judges: tone, helpfulness, the facts that need judgement.
 ```
