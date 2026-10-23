@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { OutboundMessage } from '../../channels/channel.js';
-import { getVariants } from '../../catalogue/repository.js';
+import { getVariants, type ProductRow } from '../../catalogue/repository.js';
 import { defineTool, ToolError } from '../tool.js';
 import { formatEuros, labelsFor, languageSchema, productCard, truncate } from './product-view.js';
 
@@ -11,6 +11,26 @@ const LIST = { rows: 10, rowTitle: 24, rowDescription: 72, button: 20, header: 6
 
 /** The id a list row carries back when the customer taps it. */
 export const productRowId = (variantId: string) => `product:${variantId}`;
+
+/**
+ * Row titles a customer can tell apart. Catalogue names often share a long start ("Pavimento
+ * Flutuante de Madeira Multicamadas - Kährs Carvalho Amber"), which a 24-character title cuts to
+ * the same text on every row, so the words all names share are dropped first.
+ */
+export function distinctNames(titles: string[]): string[] {
+  const words = titles.map((t) => t.split(/\s+/));
+  let common = 0;
+  if (titles.length > 1) {
+    while (words.every((w) => common < w.length - 1 && w[common] === words[0]![common])) common++;
+  }
+  return words.map((w, i) => {
+    const rest = w
+      .slice(common)
+      .join(' ')
+      .replace(/^[-–—·:|,\s]+/, '');
+    return rest || titles[i]!;
+  });
+}
 
 const inputSchema = z.object({
   variant_ids: z
@@ -24,6 +44,13 @@ const inputSchema = z.object({
     .optional()
     .describe(
       'Text above the list when more than 3 products are shown, in the customer language. Ignored for 1-3 products.',
+    ),
+  row_titles: z
+    .array(z.string().min(1).max(LIST.rowTitle))
+    .max(LIST.rows)
+    .optional()
+    .describe(
+      'For 4 or more products: a short title per product (max 24 characters), in the same order as variant_ids, that tells it apart from the others (e.g. "Kährs Carvalho Amber", not the shared "Pavimento Flutuante…"). Default: the product names without the words they all share.',
     ),
   button_label: z
     .string()
@@ -62,17 +89,7 @@ Use it when recommending specific products from search_products, typically 2 or 
           button: truncate(input.button_label ?? lang.button, LIST.button),
           sections: [
             {
-              rows: rows.slice(0, LIST.rows).map((row) => {
-                const price = formatEuros(Number(row.price));
-                const details = [row.variantTitle, price, row.available ? null : lang.outOfStock]
-                  .filter(Boolean)
-                  .join(' · ');
-                return {
-                  id: productRowId(row.variantId),
-                  title: truncate(row.title, LIST.rowTitle),
-                  description: truncate(details, LIST.rowDescription),
-                };
-              }),
+              rows: listRows(rows.slice(0, LIST.rows), input, lang.outOfStock),
             },
           ],
         },
@@ -86,3 +103,26 @@ Use it when recommending specific products from search_products, typically 2 or 
     };
   },
 });
+
+function listRows(rows: ProductRow[], input: z.infer<typeof inputSchema>, outOfStock: string) {
+  const given = new Map(input.variant_ids.map((id, i) => [id, input.row_titles?.[i]]));
+  const names = distinctNames(rows.map((r) => r.title));
+  return rows.map((row, i) => {
+    const name = names[i]!;
+    const title = given.get(row.variantId) ?? truncate(name, LIST.rowTitle);
+    const details = [
+      row.variantTitle,
+      formatEuros(Number(row.price)),
+      row.available ? null : outOfStock,
+      // The full name when the title does not show it.
+      title === name ? null : name,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return {
+      id: productRowId(row.variantId),
+      title,
+      description: truncate(details, LIST.rowDescription),
+    };
+  });
+}
