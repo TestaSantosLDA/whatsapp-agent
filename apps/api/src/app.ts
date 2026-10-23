@@ -39,6 +39,8 @@ import { adminApiRoutes, adminConfig, devLoginSecret } from './admin/router.js';
 import { SettingsService } from './admin/settings/service.js';
 import { SupabaseAdminApi, type SupabaseAdmin } from './admin/supabase-admin.js';
 import { TeamService } from './admin/team/service.js';
+import { LeadsService } from './admin/leads/service.js';
+import { LeadReminders } from './leads/reminders.js';
 
 export interface AppDeps {
   env: Env;
@@ -117,6 +119,19 @@ export function createApp(deps: AppDeps) {
     dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}/`,
   });
   const settings = new SettingsService({ db: deps.db, clients: deps.clients });
+  // Leads pipeline (WA-024).
+  const leads = new LeadsService({ db: deps.db, team, backoffice });
+  const leadReminders = new LeadReminders({
+    db: deps.db,
+    clients: deps.clients,
+    mailer: mailerFromEnv({
+      db: deps.db,
+      backoffice,
+      resendApiKey: deps.env.RESEND_API_KEY,
+      redirectTo: deps.env.MAIL_REDIRECT_TO,
+    }),
+    dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}`,
+  });
 
   const app = new Hono();
   if (deps.logRequests)
@@ -152,6 +167,7 @@ export function createApp(deps: AppDeps) {
         queue instanceof CloudTasksQueue
           ? (name, payload, retryCount) => queue.run(name, payload, retryCount)
           : undefined,
+      leadReminders,
     }),
   );
 
@@ -194,6 +210,7 @@ export function createApp(deps: AppDeps) {
       verifier,
       team,
       settings,
+      leads,
       devSecret,
     }),
   );
@@ -202,7 +219,7 @@ export function createApp(deps: AppDeps) {
   if (deps.serveAdmin ?? deps.serveSimulator ?? true) serveAdmin(app, deps.env.ADMIN_DIST_DIR);
   if (deps.serveSimulator ?? true) serveSimulator(app, deps.env.SIMULATOR_DIST_DIR);
 
-  return { app, queue, bus, messages, backoffice, team, settings, verifier };
+  return { app, queue, bus, messages, backoffice, team, settings, verifier, leads, leadReminders };
 }
 
 function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise<void>): Queue {

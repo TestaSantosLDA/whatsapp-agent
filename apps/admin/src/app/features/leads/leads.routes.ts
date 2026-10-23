@@ -1,16 +1,15 @@
 import type { Routes } from '@angular/router';
-import { ComingSoon } from '../../shared/coming-soon';
 
-/** Pedidos (WA-024): placeholder until the ticket replaces it with its own screens. */
+/** Pedidos (WA-024): the list, and one lead's page. */
 export const routes: Routes = [
   {
     path: '',
-    component: ComingSoon,
     title: 'Pedidos',
-    data: {
-      title: 'Pedidos',
-      ticket: 'WA-024',
-      text: 'Pedidos de orçamento, amostras e encomendas, com responsável, estado e alertas quando ficam sem resposta.',
-    },
+    loadComponent: () => import('./leads.page').then((m) => m.LeadsPage),
+  },
+  {
+    path: ':id',
+    title: 'Pedido',
+    loadComponent: () => import('./lead.page').then((m) => m.LeadPage),
   },
 ];

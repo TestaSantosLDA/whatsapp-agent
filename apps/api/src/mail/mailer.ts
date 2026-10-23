@@ -5,7 +5,7 @@ import { outbox } from '../db/schema.js';
 import { BackgroundTasks } from '../services/background.js';
 import type { BackofficeService } from '../services/backoffice.js';
 
-export type EmailKind = 'lead' | 'handoff' | 'order_draft';
+export type EmailKind = 'lead' | 'handoff' | 'order_draft' | 'lead_reminder';
 
 /** An email to the client's team about one conversation (WA-015). */
 export interface Email {

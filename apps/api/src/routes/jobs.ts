@@ -8,6 +8,7 @@ import { syncClients } from '../catalogue/sync.js';
 import type { ClientRegistry } from '../clients/registry.js';
 import type { Db } from '../db/index.js';
 import type { Env } from '../env.js';
+import type { LeadReminders } from '../leads/reminders.js';
 import type { RunResult } from '../queue/cloud-tasks.js';
 
 /**
@@ -22,6 +23,8 @@ export function jobsRoutes(deps: {
   sourceFor?: (client: ClientConfig) => CatalogueSource | undefined;
   /** Set when QUEUE=cloudtasks: runs a job that Cloud Tasks delivers to /jobs/run/:name. */
   runJob?: (name: string, payload: unknown, retryCount: number) => Promise<RunResult>;
+  /** WA-024: no-reply reminders for leads. */
+  leadReminders?: LeadReminders;
 }) {
   const app = new Hono();
 
@@ -56,6 +59,13 @@ export function jobsRoutes(deps: {
   app.post('/keepalive', async (c) => {
     await deps.db.execute(sql`select 1`);
     return c.json({ ok: true });
+  });
+
+  // Every 15 minutes during the day (WA-024): reminds owners, then admins, of leads still `new`
+  // past the response time in working hours. Safe to run as often as you like.
+  app.post('/lead-reminders', async (c) => {
+    if (!deps.leadReminders) return c.text('Lead reminders not configured', 404);
+    return c.json(await deps.leadReminders.run());
   });
 
   // Cloud Tasks delivery of a queued job. 500 asks Cloud Tasks to retry; after the last attempt

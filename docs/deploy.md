@@ -14,7 +14,7 @@ Phone / laptop ──https──> Cloud Run "wa-demo" (one container, europe-wes
                              ├─ /webhook/*   Meta-format webhook
                              └─ /jobs/*      x-jobs-secret header
                                    ▲  ▲
-          Cloud Tasks "wa-conversations" │  └── Cloud Scheduler: hourly catalogue sync, weekly keep-alive
+          Cloud Tasks "wa-conversations" │  └── Cloud Scheduler: hourly catalogue sync, weekly keep-alive, lead reminders every 15 min
           (one conversation turn per task) │
                                           └── Supabase Postgres (transaction pooler, Paris)
 ```
@@ -34,7 +34,7 @@ Everything below stays inside the free tiers at demo volume. Only the Claude API
 | Cloud Run         | 180,000 vCPU-s, 360,000 GiB-s, 2 M requests (request-based billing) | 1 vCPU, 512 MiB, min 0 instances                                  |
 | Artifact Registry | 0.5 GB storage                                                      | ~100 MB per image; a cleanup policy keeps the last 3              |
 | Cloud Tasks       | 1 M operations                                                      | a few per message                                                 |
-| Cloud Scheduler   | 3 jobs                                                              | 2 jobs                                                            |
+| Cloud Scheduler   | 3 jobs                                                              | 3 jobs (a fourth costs $0.10 a month)                             |
 | Secret Manager    | 6 active secret versions, 10,000 accesses                           | 5 to 8 secrets (one version each: destroy old ones when rotating) |
 | Supabase          | 500 MB database; pauses after 7 days without activity               | the hourly sync keeps it awake                                    |
 
@@ -273,10 +273,16 @@ gcloud scheduler jobs create http wa-keepalive --location="$REGION" \
   --schedule="0 9 * * 1" --time-zone=Europe/Lisbon \
   --uri="$URL/jobs/keepalive" --http-method=POST \
   --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=60s
+gcloud scheduler jobs create http wa-lead-reminders --location="$REGION" \
+  --schedule="*/15 * * * *" --time-zone=Europe/Lisbon \
+  --uri="$URL/jobs/lead-reminders" --http-method=POST \
+  --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=120s
 gcloud scheduler jobs run wa-catalogue-sync --location="$REGION"   # run it once now
 ```
 
-The secret is stored in the job's configuration, readable by project owners only. After rotating `JOBS_SECRET`, run `gcloud scheduler jobs update http <job> --location="$REGION" --update-headers="x-jobs-secret=<new>"` for both jobs.
+`wa-lead-reminders` ([WA-024](tickets/WA-024-leads-pipeline.md)) emails a lead's owner once it is still `new` after the client's `lead.response_time_hours` (default 8) counted in the branch's opening hours, and the branch's admins once after 24 working hours. Each reminder is claimed in the database before it is sent, so a retried or overlapping run never sends one twice; the answer is `{ checked, owner, admin }`. Every 15 minutes keeps a reminder at most 15 minutes late; it is a short request (one query, mostly no email), well inside the Cloud Run free tier.
+
+The secret is stored in the job's configuration, readable by project owners only. After rotating `JOBS_SECRET`, run `gcloud scheduler jobs update http <job> --location="$REGION" --update-headers="x-jobs-secret=<new>"` for every job.
 
 ## Verify
 

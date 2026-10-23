@@ -125,3 +125,39 @@ export function nextOpening(
   }
   return undefined;
 }
+
+/**
+ * Working hours of a branch between two instants (WA-024): the time inside its opening hours,
+ * in hours (fractional). Lunch breaks and closed days do not count; each opening range is turned
+ * into instants in the client's time zone on its own day, so a DST change counts what the clock
+ * on the wall shows.
+ */
+export function workingHoursBetween(
+  branch: Pick<ClientConfig['branches'][number], 'hours'>,
+  from: Date,
+  to: Date,
+  timeZone: string,
+): number {
+  if (!(to.getTime() > from.getTime())) return 0;
+  const first = localDate(from, timeZone);
+  const last = localDate(to, timeZone);
+  const lastDay = Date.UTC(last.year, last.month - 1, last.day);
+  let ms = 0;
+  // Calendar arithmetic in UTC, so a DST change never skips or repeats a day. Ten years at most.
+  for (let i = 0; i < 3660; i++) {
+    const civil = new Date(Date.UTC(first.year, first.month - 1, first.day + i));
+    if (civil.getTime() > lastDay) break;
+    const date = {
+      year: civil.getUTCFullYear(),
+      month: civil.getUTCMonth() + 1,
+      day: civil.getUTCDate(),
+    };
+    for (const range of branch.hours[weekdays[civil.getUTCDay()]!] ?? []) {
+      const [start, end] = range.split('-').map(toMinutes);
+      const opens = zonedInstant(date, start!, timeZone).getTime();
+      const closes = zonedInstant(date, end!, timeZone).getTime();
+      ms += Math.max(0, Math.min(closes, to.getTime()) - Math.max(opens, from.getTime()));
+    }
+  }
+  return ms / 3_600_000;
+}

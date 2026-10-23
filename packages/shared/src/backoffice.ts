@@ -11,6 +11,9 @@ export interface BackofficeLead {
   branchId: string | null;
   branchName: string | null;
   status: string;
+  /** Who follows the lead up (WA-024). */
+  ownerId?: string | null;
+  ownerName?: string | null;
   /** Everything the agent collected: name, location, area, summary, … */
   fields: Record<string, unknown>;
 }
