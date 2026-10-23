@@ -6,3 +6,4 @@ export * from './settings.js';
 export * from './admin.js';
 export * from './leads.js';
 export * from './knowledge.js';
+export * from './privacy.js';

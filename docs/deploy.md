@@ -269,18 +269,22 @@ gcloud scheduler jobs create http wa-catalogue-sync --location="$REGION" \
   --schedule="0 * * * *" --time-zone=Europe/Lisbon \
   --uri="$URL/jobs/catalogue-sync" --http-method=POST \
   --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=300s
-gcloud scheduler jobs create http wa-keepalive --location="$REGION" \
-  --schedule="0 9 * * 1" --time-zone=Europe/Lisbon \
-  --uri="$URL/jobs/keepalive" --http-method=POST \
-  --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=60s
 gcloud scheduler jobs create http wa-lead-reminders --location="$REGION" \
   --schedule="*/15 * * * *" --time-zone=Europe/Lisbon \
   --uri="$URL/jobs/lead-reminders" --http-method=POST \
   --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=120s
+gcloud scheduler jobs create http wa-privacy-retention --location="$REGION" \
+  --schedule="30 3 * * *" --time-zone=Europe/Lisbon \
+  --uri="$URL/jobs/privacy-retention" --http-method=POST \
+  --headers="x-jobs-secret=$JOBS_SECRET" --attempt-deadline=300s
 gcloud scheduler jobs run wa-catalogue-sync --location="$REGION"   # run it once now
 ```
 
 `wa-lead-reminders` ([WA-024](tickets/WA-024-leads-pipeline.md)) emails a lead's owner once it is still `new` after the client's `lead.response_time_hours` (default 8) counted in the branch's opening hours, and the branch's admins once after 24 working hours. Each reminder is claimed in the database before it is sent, so a retried or overlapping run never sends one twice; the answer is `{ checked, owner, admin }`. Every 15 minutes keeps a reminder at most 15 minutes late; it is a short request (one query, mostly no email), well inside the Cloud Run free tier.
+
+There is no separate keep-alive job: the hourly catalogue sync and the lead reminders touch the database far more often than Supabase's 7-day pause, so the three jobs stay inside Cloud Scheduler's free tier. `POST /jobs/keepalive` still exists for a manual ping.
+
+The daily privacy retention job ([WA-028](tickets/WA-028-privacy-tools.md)) deletes customers with no activity for longer than the client's `privacy.retention_months` (default 24), at most 500 per client and run, through the same handlers as a delete from the dashboard; leads are anonymised, and each deletion is in the privacy audit log as "Apagado por retenção". `?client=<id>` runs one client. Admins see whom it deletes in the next 7 days in Privacidade → Retenção.
 
 The secret is stored in the job's configuration, readable by project owners only. After rotating `JOBS_SECRET`, run `gcloud scheduler jobs update http <job> --location="$REGION" --update-headers="x-jobs-secret=<new>"` for every job.
 

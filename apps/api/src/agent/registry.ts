@@ -9,8 +9,8 @@ import { sendOrderDraftTool } from './tools/send-order-draft.js';
 import { showProductsTool } from './tools/show-products.js';
 
 /**
- * Tools a client can enable by name in its config (`tools:`). offer_choices and
- * handoff_to_human are always on and live in the responder.
+ * Tools a client can enable by name in its config (`tools:`). offer_choices, handoff_to_human
+ * and request_data_deletion (WA-028) are always on and live in the responder.
  */
 export const agentTools: AgentTool[] = [
   calculateQuantityTool,

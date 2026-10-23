@@ -170,8 +170,12 @@ handoff:
     - Obras de pavimento ou deck acima de 300 m², para a equipa preparar uma proposta.
 
 privacy_policy_url: https://jular.pt/politica-de-privacidade
+# WA-028: customers with no activity for this many months are deleted by a daily job.
+privacy:
+  retention_months: 24
 
-# Agent tools (apps/api/src/agent/registry.ts). offer_choices and handoff_to_human are always on.
+# Agent tools (apps/api/src/agent/registry.ts). offer_choices, handoff_to_human and
+# request_data_deletion are always on.
 tools:
   - search_products
   - get_product

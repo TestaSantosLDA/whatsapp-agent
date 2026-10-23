@@ -39,6 +39,11 @@ export const routes: Routes = [
         loadChildren: () => import('./features/overview/overview.routes').then((m) => m.routes),
       },
       {
+        path: 'privacy',
+        canActivate: [adminGuard],
+        loadChildren: () => import('./features/privacy/privacy.routes').then((m) => m.routes),
+      },
+      {
         path: 'settings',
         canActivate: [adminGuard],
         loadChildren: () => import('./features/settings/settings.routes').then((m) => m.routes),

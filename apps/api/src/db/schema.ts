@@ -29,6 +29,8 @@ export const contacts = pgTable(
     name: text('name'),
     language: text('language'),
     consent: jsonb('consent').$type<Record<string, boolean>>().notNull().default({}),
+    /** WA-028: the customer objected to profiling ("clear profile"); WA-027 must not build one. */
+    profilingOptOut: boolean('profiling_opt_out').notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('contacts_client_wa_id').on(t.clientId, t.waId)],
@@ -83,13 +85,14 @@ export const messages = pgTable(
   ],
 );
 
-/** One row per agent turn, for cost, latency and debugging. */
+/**
+ * One row per agent turn, for cost, latency and debugging. When a customer is deleted (WA-028)
+ * the row is kept for cost figures, without its conversation and without tool inputs and outputs.
+ */
 export const agentRuns = pgTable('agent_runs', {
   id: id(),
   clientId: clientId(),
-  conversationId: uuid('conversation_id')
-    .notNull()
-    .references(() => conversations.id),
+  conversationId: uuid('conversation_id').references(() => conversations.id),
   model: text('model').notNull(),
   inputTokens: integer('input_tokens').notNull().default(0),
   outputTokens: integer('output_tokens').notNull().default(0),
@@ -247,18 +250,33 @@ export const leadNotes = pgTable(
 /** Who changed what on a lead: created, status, owner, note, reminders. */
 export const leadEvents = pgTable(
   'lead_events',
+  {
+    id: id(),
+    clientId: clientId(),
+    leadId: uuid('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
     /** The team member who did it; empty for the agent and the scheduled reminders. */
     actorMemberId: uuid('actor_member_id').references(() => teamMembers.id, {
+      onDelete: 'set null',
+    }),
     /** A LeadEventKind (packages/shared/src/leads.ts). */
     kind: text('kind').notNull(),
     /** Details per kind, e.g. `{ from, to, lostReason }` for a status change. */
     data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: createdAt(),
+  },
   (t) => [index('lead_events_lead').on(t.leadId, t.createdAt)],
+);
+
 // ---------- WA-026: knowledge base ----------
 
 /** A file the team uploaded (technical sheet, price list, catalogue). The file is in the FileStore. */
 export const documents = pgTable(
   'documents',
+  {
+    id: id(),
+    clientId: clientId(),
     /** The file name as uploaded; the agent cites the document by it. */
     name: text('name').notNull(),
     /** pdf | xlsx | csv | docx | png | jpg */
@@ -268,6 +286,7 @@ export const documents = pgTable(
     /** Key in the FileStore: `<clientId>/<documentId>/<filename>`. */
     storagePath: text('storage_path').notNull(),
     status: text('status', { enum: ['processing', 'needs_review', 'live', 'failed'] })
+      .notNull()
       .default('processing'),
     /** Bumped on every replace, so a job for an older file does not write over the new one. */
     version: integer('version').notNull().default(1),
@@ -278,13 +297,20 @@ export const documents = pgTable(
     inputTokens: integer('input_tokens').notNull().default(0),
     outputTokens: integer('output_tokens').notNull().default(0),
     costUsd: numeric('cost_usd', { precision: 10, scale: 6 }),
+    createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
   (t) => [index('documents_client').on(t.clientId, t.createdAt)],
+);
 
 /** A page (PDF), sheet chunk (XLSX/CSV) or section (DOCX) of a document, for search_documents. */
 export const documentPassages = pgTable(
   'document_passages',
+  {
+    id: id(),
+    clientId: clientId(),
     documentId: uuid('document_id')
+      .notNull()
       .references(() => documents.id, { onDelete: 'cascade' }),
     /** 1-based page, sheet chunk or section number. */
     page: integer('page').notNull(),
@@ -295,14 +321,22 @@ export const documentPassages = pgTable(
       (): SQL =>
         sql`setweight(to_tsvector('portuguese', coalesce(${documentPassages.label}, '') || ' ' || ${documentPassages.text}), 'A') || setweight(to_tsvector('simple', ${documentPassages.text}), 'B')`,
     ),
+  },
   (t) => [
     index('document_passages_document').on(t.documentId, t.page),
     index('document_passages_search').using('gin', t.searchVector),
   ],
+);
 
 /** A product field value Claude read in a document, waiting for an admin (WA-026). */
 export const productDataProposals = pgTable(
   'product_data_proposals',
+  {
+    id: id(),
+    clientId: clientId(),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
     page: integer('page'),
     /** Handle, SKU or variant id, like the keys of `product_data` in the client YAML. */
     productKey: text('product_key'),
@@ -315,10 +349,14 @@ export const productDataProposals = pgTable(
     confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull(),
     quote: text('quote'),
     status: text('status', { enum: ['pending', 'approved', 'rejected', 'edited'] })
+      .notNull()
       .default('pending'),
     decidedBy: uuid('decided_by').references(() => teamMembers.id, { onDelete: 'set null' }),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
   (t) => [index('product_data_proposals_document').on(t.documentId)],
+);
 
 /**
  * Approved product data (WA-026), merged over clients/<id>.yaml `product_data` into the
@@ -326,10 +364,74 @@ export const productDataProposals = pgTable(
  */
 export const productDataOverrides = pgTable(
   'product_data_overrides',
+  {
+    id: id(),
+    clientId: clientId(),
     productKey: text('product_key').notNull(),
+    field: text('field').notNull(),
+    value: jsonb('value').notNull(),
     /** Where the value came from; kept when the document is deleted unless the data is too. */
     documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
     proposalId: uuid('proposal_id').references(() => productDataProposals.id, {
+      onDelete: 'set null',
+    }),
     approvedBy: uuid('approved_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
   (t) => [uniqueIndex('product_data_overrides_key').on(t.clientId, t.productKey, t.field)],
+);
+
+// ---------- WA-028: privacy tools ----------
+
+/**
+ * A customer's request about their data, opened by the agent (request_data_deletion) or by the
+ * team, waiting for an admin. The contact link is cleared when the customer is deleted; the row
+ * stays, without personal content, as a record that the request was carried out.
+ */
+export const privacyRequests = pgTable(
+  'privacy_requests',
+  {
+    id: id(),
+    clientId: clientId(),
+    contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+    type: text('type', { enum: ['export', 'delete', 'clear_profile'] }).notNull(),
+    status: text('status', { enum: ['pending', 'done', 'rejected'] })
+      .notNull()
+      .default('pending'),
+    source: text('source', { enum: ['whatsapp', 'dashboard'] })
+      .notNull()
+      .default('whatsapp'),
+    decidedBy: uuid('decided_by').references(() => teamMembers.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    /** Rows changed per table when it was carried out. Counts only. */
+    result: jsonb('result').$type<Record<string, number>>(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('privacy_requests_client_status').on(t.clientId, t.status, t.createdAt)],
+);
+
+/**
+ * Who exported, cleared or deleted what, and when. Never holds personal content: the customer
+ * is a hash of their contact id, and `counts` are rows per table.
+ */
+export const privacyAudit = pgTable(
+  'privacy_audit',
+  {
+    id: id(),
+    clientId: clientId(),
+    /**
+     * The team member (team_members.id); empty for the scheduled retention job. No foreign key:
+     * the entry keeps the id after the member leaves the team.
+     */
+    actorMemberId: uuid('actor_member_id'),
+    action: text('action', {
+      enum: ['export', 'clear_profile', 'delete', 'retention_delete', 'request_rejected'],
+    }).notNull(),
+    /** sha256 of the contact id: lets an auditor match entries without naming the person. */
+    targetHash: text('target_hash').notNull(),
+    requestId: uuid('request_id'),
+    counts: jsonb('counts').$type<Record<string, number>>().notNull().default({}),
+    createdAt: createdAt(),
+  },
+  (t) => [index('privacy_audit_client_time').on(t.clientId, t.createdAt)],
 );

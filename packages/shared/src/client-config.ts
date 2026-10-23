@@ -160,6 +160,10 @@ export const clientConfigSchema = z.object({
     .prefault({}),
   /** Linked in the first reply to a new contact. */
   privacy_policy_url: z.url().optional(),
+  /** WA-028: contacts with no activity for this many months are deleted by a scheduled job. */
+  privacy: z
+    .object({ retention_months: z.number().int().min(1).max(120).default(24) })
+    .prefault({}),
   policies: z.record(z.string(), z.string()).default({}),
   product_data: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
   /** Client-specific conversation playbooks added to the system prompt (WA-017). */

@@ -28,6 +28,7 @@
     "@wa/shared": "workspace:*",
     "csv-parse": "7.0.3",
     "drizzle-orm": "^0.45.4",
+    "fflate": "^0.8.3",
     "hono": "^4.13.13",
     "jose": "~6.2.12",
     "mammoth": "1.13.0",

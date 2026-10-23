@@ -23,9 +23,10 @@ import { buildSystemPrompt, turnContext } from './prompt.js';
 import { ToolError, type AgentTool, type ToolContext } from './tool.js';
 import { offerChoices } from './tools/offer-choices.js';
 import { handoffToHuman } from './tools/handoff-to-human.js';
+import { requestDataDeletion } from './tools/request-data-deletion.js';
 
 /** Tools every client gets. The rest are enabled per client in config `tools:`. */
-const coreTools: AgentTool[] = [offerChoices, handoffToHuman];
+const coreTools: AgentTool[] = [offerChoices, handoffToHuman, requestDataDeletion];
 
 /** Asking for a person always reaches one, even if the model forgets to call handoff_to_human. */
 const askForHuman =

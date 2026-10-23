@@ -50,6 +50,7 @@ import {
   processDocument,
   type ProcessDocumentPayload,
 } from './knowledge/process.js';
+import { PrivacyService } from './privacy/service.js';
 
 export interface AppDeps {
   env: Env;
@@ -170,6 +171,8 @@ export function createApp(deps: AppDeps) {
     }),
     dashboardUrl: `${deps.env.PUBLIC_BASE_URL.replace(/\/+$/, '')}${ADMIN_BASE}`,
   });
+  // Privacy tools (WA-028). Features with customer data add handlers in privacy/handlers.ts.
+  const privacy = new PrivacyService({ db: deps.db, messages });
 
   const app = new Hono();
   if (deps.logRequests)
@@ -201,6 +204,7 @@ export function createApp(deps: AppDeps) {
       env: deps.env,
       db: deps.db,
       clients: deps.clients,
+      privacy,
       runJob:
         queue instanceof CloudTasksQueue
           ? (name, payload, retryCount) => queue.run(name, payload, retryCount)
@@ -250,6 +254,7 @@ export function createApp(deps: AppDeps) {
       settings,
       leads,
       knowledge,
+      privacy,
       devSecret,
     }),
   );
@@ -258,7 +263,21 @@ export function createApp(deps: AppDeps) {
   if (deps.serveAdmin ?? deps.serveSimulator ?? true) serveAdmin(app, deps.env.ADMIN_DIST_DIR);
   if (deps.serveSimulator ?? true) serveSimulator(app, deps.env.SIMULATOR_DIST_DIR);
 
-  return { app, queue, bus, messages, backoffice, team, settings, verifier, leads, leadReminders, knowledge, files };
+  return {
+    app,
+    queue,
+    bus,
+    messages,
+    backoffice,
+    team,
+    settings,
+    verifier,
+    leads,
+    leadReminders,
+    knowledge,
+    files,
+    privacy,
+  };
 }
 
 function queueFromEnv(env: Env, onFailure: (job: Job, error: unknown) => Promise<void>): Queue {

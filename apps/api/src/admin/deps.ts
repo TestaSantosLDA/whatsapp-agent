@@ -3,6 +3,7 @@ import type { MessageService } from '../services/messages.js';
 import type { ClientRegistry } from '../clients/registry.js';
 import type { Db } from '../db/index.js';
 import type { Env } from '../env.js';
+import type { PrivacyService } from '../privacy/service.js';
 import type { SupabaseJwtVerifier } from './auth.js';
 import type { LeadsService } from './leads/service.js';
 import type { KnowledgeService } from './knowledge/service.js';
@@ -26,6 +27,8 @@ export interface AdminDeps {
   leads: LeadsService;
   /** WA-026. */
   knowledge: KnowledgeService;
+  /** Export, clear profile, delete, requests, retention, audit (WA-028). */
+  privacy: PrivacyService;
   /** Secret of the dev login's tokens; undefined unless ADMIN_DEV_LOGIN is on (never in prod). */
   devSecret?: Uint8Array;
 }
