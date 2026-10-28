@@ -168,10 +168,12 @@ export function turnContext(input: {
   contact: ContactRow;
   now: Date;
   firstContact: boolean;
+  /** No reply yet in this conversation: a new customer, or one coming back after it was closed. */
+  newConversation?: boolean;
   /** WA-027: the customer's record, profile and last orders (customers/context.ts). */
   customer?: string[];
 }): string {
-  const { client, contact, now, firstContact } = input;
+  const { client, contact, now, firstContact, newConversation = firstContact } = input;
   const open = client.branches.filter((b) => isOpen(b, now, client.timezone)).map((b) => b.id);
   const lines = [
     `Now: ${formatLocal(now, client.timezone, 'en')} (${client.timezone}).`,
@@ -185,12 +187,13 @@ export function turnContext(input: {
     lines.push(
       `This is the customer's first message. Start by saying, in one short sentence, that you are ${client.name}'s automated assistant${privacy} and that they can ask for a colleague at any time. Then answer.`,
     );
-    if (client.welcome_menu) {
-      const menu = client.welcome_menu.map((m) => `- "${m.title}": ${m.about}`).join('\n');
-      lines.push(
-        `If this first message is only a greeting or has no clear question, ask how you can help and call offer_choices with exactly these options (translated if the customer writes in another language), then follow the meaning of the one they tap:\n${menu}\nIf it already asks something, answer it and do not show the menu.`,
-      );
-    }
+  }
+  // WA-032: the menu opens every new conversation, also when a known customer comes back.
+  if (newConversation && client.welcome_menu) {
+    const menu = client.welcome_menu.map((m) => `- "${m.title}": ${m.about}`).join('\n');
+    lines.push(
+      `This message opens a new conversation. If it is only a greeting or has no clear question, ask how you can help and call offer_choices with exactly these options (translated if the customer writes in another language), then follow the meaning of the one they tap:\n${menu}\nIf it already asks something, answer it and do not show the menu.`,
+    );
   }
   if (input.customer?.length) lines.push(...input.customer);
   return lines.join('\n');

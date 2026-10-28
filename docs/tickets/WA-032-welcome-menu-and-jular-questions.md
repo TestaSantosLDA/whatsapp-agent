@@ -10,7 +10,7 @@ Jular sent (2026-10-23) the three questions customers most often start with, and
 
 ## Scope
 
-- **Welcome menu (generic):** optional `welcome_menu` in the client config, 2 or 3 items, each a `title` (max 20 characters, a WhatsApp button) and an `about` (what the customer wants and what the agent does next). On the first message of a new contact, when it is only a greeting, the agent shows the menu with `offer_choices` (translated for a customer writing in another language). When the first message already asks something, it answers and shows no menu.
+- **Welcome menu (generic):** optional `welcome_menu` in the client config, 2 or 3 items, each a `title` (max 20 characters, a WhatsApp button) and an `about` (what the customer wants and what the agent does next). On the first message of each new conversation (a new contact, or a known customer whose last conversation was closed), when it is only a greeting, the agent shows the menu with `offer_choices` (translated for a customer writing in another language). When the first message already asks something, it answers and shows no menu.
 - **Jular:** `welcome_menu` with "Procuro um produto", "Comprar ou orçamento" and "Lojas e contactos".
 - **Evals:** `evals/jular/jular-questions.yaml`: the menu (greeting in pt-PT and English, a direct question without menu) and the customer questions: modular-house typologies, where to see prices, deck installation, pavilions, house foundations. The last three are "to confirm" cases: the agent must not invent the answer until Jular replies. The eval set limit goes from 48 to 60 cases.
 

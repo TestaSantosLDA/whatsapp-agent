@@ -158,7 +158,7 @@ describe('ClaudeResponder', () => {
     expect(Number(runs[1]!.costUsd)).toBeGreaterThan(0);
   });
 
-  it('offers the welcome menu on the first message only (WA-032)', async () => {
+  it('offers the welcome menu when a conversation opens (WA-032)', async () => {
     const welcome_menu = [
       { title: 'Procuro um produto', about: 'They look for a product.' },
       { title: 'Lojas e contactos', about: 'They want showrooms and hours.' },
@@ -168,6 +168,7 @@ describe('ClaudeResponder', () => {
         callTool('offer_choices', { options: welcome_menu.map((m) => m.title) }),
         say('Olá! Sou o assistente automático da Acme Madeiras. Em que posso ajudar?'),
         say('Temos sim.'),
+        say('Olá! Em que posso ajudar?'),
       ],
       { client: testClient({ welcome_menu }) },
     );
@@ -193,6 +194,13 @@ describe('ClaudeResponder', () => {
     await t.send('Têm decks?');
     const second = t.requests[2]!.body.messages as { content: unknown }[];
     expect(String(second.at(-1)!.content)).not.toContain('Procuro um produto');
+
+    // A closed conversation (the simulator's reset): the customer is known, the menu comes back.
+    await t.app.request('/sim/acme/reset?phone=351911111111', { method: 'POST' });
+    await t.send('Olá de novo');
+    const third = String((t.requests[3]!.body.messages as { content: unknown }[]).at(-1)!.content);
+    expect(third).toContain('- "Procuro um produto": They look for a product.');
+    expect(third).not.toMatch(/first message/);
   });
 
   it('refuses a welcome menu title longer than a WhatsApp button allows', () => {

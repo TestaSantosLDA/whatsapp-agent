@@ -312,6 +312,7 @@ export class ClaudeResponder implements Responder {
           contact,
           now,
           firstContact: !earlier,
+          newConversation: !rows.some((m) => m.direction === 'outbound'),
           customer: await customerTurnContext(this.deps.db, client, contact),
         }),
       },
