@@ -89,9 +89,10 @@ One markdown file per ticket. A ticket is written and agreed before it is implem
 
 ### Backlog (after the demo)
 
-| Ticket                                     | Title                                    | Depends on     | Status |
-| ------------------------------------------ | ---------------------------------------- | -------------- | ------ |
-| [WA-030](WA-030-whatsapp-cloud-channel.md) | Real WhatsApp Cloud API channel          | WA-004         | todo   |
-| [WA-031](WA-031-new-demo-client.md)        | Onboard a demo client from a website URL | WA-002, WA-008 | todo   |
+| Ticket                                         | Title                                    | Depends on             | Status |
+| ---------------------------------------------- | ---------------------------------------- | ---------------------- | ------ |
+| [WA-030](WA-030-whatsapp-cloud-channel.md)     | Real WhatsApp Cloud API channel          | WA-004                 | todo   |
+| [WA-031](WA-031-new-demo-client.md)            | Onboard a demo client from a website URL | WA-002, WA-008         | todo   |
+| [WA-034](WA-034-sage-sales-management-sync.md) | Send leads to Sage Sales Management      | WA-014, WA-024, WA-027 | todo   |
 
-Further ideas (no ticket yet): order status via Shopify Admin API, delivery scheduling, abandoned cart and back-in-stock alerts, technical sheets from jular.pt/downloads, Meta Tech Provider and Embedded Signup, admin dashboard, CRM sinks.
+Further ideas (no ticket yet): order status via Shopify Admin API, delivery scheduling, abandoned cart and back-in-stock alerts, technical sheets from jular.pt/downloads, Meta Tech Provider and Embedded Signup, admin dashboard, status sync back from the CRM (after WA-034).
